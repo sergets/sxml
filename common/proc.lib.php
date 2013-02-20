@@ -1,17 +1,7 @@
 <?
 // Модуль sxml-процессора SXMLight
 // Получает на вход входной xml-документ, возвращает его, с обработанными sxml-инструкциями 
-
-///////////
-// Параметры
-///////////
-$SXMLParams = array(
-    'host' => 'sxml', // site.ru
-    'root' => '/', // /project. Обязательно наличие стандартной папки /project/sxml
-    'ns' => 'http://sergets.ru/sxml'
-);
-
-$SXMLParams['localroot'] = $_SERVER['DOCUMENT_ROOT'].$SXMLParams['root']; // /var/www/site_ru/project
+require_once 'setup.php';
 
 // Кеши для часто встречающихся объектов
 $_xpaths = array();
