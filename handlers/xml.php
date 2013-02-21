@@ -5,7 +5,7 @@
     // имя файла 'file' и требуемые параметры 'query'
     // и кладёт их в глобальный массив $_SXML, а также ставит заголовок 200 OK
 
-    require_once '../common/settings.php';
+    require_once '../common/setup.php';
     require_once '../common/proc.lib.php';
     
     $doc = new DOMDocument();

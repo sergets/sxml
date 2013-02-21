@@ -44,9 +44,11 @@
     }
     
     // Ищем файл
+    $ready = false;
     $_SXML['file'] = $file = resolvePath($filename); // $file - локальное имя файла
     if (!file_exists($file)) {
     
+        $ready = true;
         header('HTTP/1.0 404 Not Found');
         include ($SXMLParams['errors']['404']); // 
     
@@ -55,17 +57,17 @@
             $_SXML['file'] = $file = $file.'/'.$SXMLParams['dirindex'];
         } else {
             
-            header('HTTP/1.0 200 OK')
+            $ready = true;
+            header('HTTP/1.0 200 OK');
             include ($SXMLParams['dirhandler']);
             
         }
     }
     // Дополнительная проверка - теперь это ещё может быть index.xml
-    if (!is_dir($file)) {
+    if (!$ready) {
     
         $fn = substr($filename, strrpos($filename, '/') + 1);
         $exts = explode('.', $fn);
-        $ready = false;
         $extensions = array(); // ['xml.php', 'php']
         while (count($exts) > 0) {
             array_shift($exts);
@@ -74,9 +76,9 @@
         foreach($extensions as $i => $extension) {
             if (isset($SXMLParams['handlers'][$extension])) {
             
-                header('HTTP/1.0 200 OK');
                 $ready = true;
-                include ($SXMLParams['handlers'][$extension]));
+                header('HTTP/1.0 200 OK');
+                include ($SXMLParams['handlers'][$extension]);
                 
                 break;
             }
@@ -84,6 +86,7 @@
         if (!$ready) {
         
             // Файл направили на нас в .htaccess'е через 403, но хендлера не нашлось. Значит, это и правда 403.
+            $ready = true;
             header('HTTP/1.0 403 Forbidden');
             include ($SXMLParams['errors']['403']);      
         
