@@ -1,23 +1,14 @@
 <?
 // Модуль sxml-процессора SXMLight
 // Получает на вход входной xml-документ, возвращает его, с обработанными sxml-инструкциями 
+
 require_once 'setup.php';
+require_once 'common.lib.php';
 
 // Кеши для часто встречающихся объектов
 $_xpaths = array();
 
-///////////
-// Утилиты
-///////////
-
-// Определяет, является ли $path относительным адресом и в любом случае преобразует его к локальному пути 
-function resolvePath2Local($path, $baseURI = '') {
-    // TODO
-}
-
-function local2global($path) {
-    // TODO
-}
+///////////////
 
 // Возвращает объект DOMXPath.
 function getXPath($doc) {
@@ -240,7 +231,7 @@ function processInclude($el) {
     if ($el->hasAttribute('range')) {
         $hash['range'] = $el->getAttribute('range');
     }
-    $block = fetch(resolvePath2Local($el->getAttribute('from'), $el->baseURI), $hash);
+    $block = fetch(resolvePath($el->getAttribute('from'), $el->baseURI), $hash);
     $el->parentElement->replaceChild($block, $el);
     processElement($block);
 }
