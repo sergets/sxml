@@ -45,7 +45,7 @@
     
     // Ищем файл
     $ready = false;
-    $_SXML['file'] = $file = resolvePath($filename); // $file - локальное имя файла
+    $_SXML['file'] = $file = resolvePath($filelocator); // $file - локальное имя файла
     if (!file_exists($file)) {
     
         $ready = true;
@@ -65,8 +65,7 @@
     }
     // Дополнительная проверка - теперь это ещё может быть index.xml
     if (!$ready) {
-    
-        $fn = substr($filename, strrpos($filename, '/') + 1);
+        $fn = substr($file, strrpos($file, '/') + 1);
         $exts = explode('.', $fn);
         $extensions = array(); // ['xml.php', 'php']
         while (count($exts) > 0) {

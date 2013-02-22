@@ -9,6 +9,27 @@
     $_xpaths = array();
 
     ///////////////
+    
+    // Шотркаты для неймспейсных атрибутов
+    function hasSXMLAttr($el, $attr) {
+        global $SXMLParams;
+        return $el->hasAttributeNS($SXMLParams['ns'], $attr);
+    }
+    
+    function getSXMLAttr($el, $attr) {
+        global $SXMLParams;
+        return $el->getAttributeNS($SXMLParams['ns'], $attr);
+    }
+    
+    function removeSXMLAttr($el, $attr) {
+        global $SXMLParams;
+        return $el->removeAttributeNS($SXMLParams['ns'], $attr);
+    }
+    
+    function setSXMLAttr($el, $attr, $val) {
+        global $SXMLParams;
+        return $el->setAttributeNS($SXMLParams['ns'], $attr, $val);
+    }
 
     // Возвращает объект DOMXPath.
     function getXPath($doc) {
@@ -19,31 +40,48 @@
         if (isset($_xpaths[$uid])) {
             return $_xpaths[$uid];
         } else {
-            $_xpaths[$uid] - new DOMXPath($doc);
+            $_xpaths[$uid] = new DOMXPath($doc);
             $_xpaths[$uid]->registerNamespace('sxml', 'http://sergets.ru/sxml');
-            $xpath->registerNamespace("php", "http://php.net/xpath");
-            $xpath->registerPHPFunctions("isThisVisible");
+            $_xpaths[$uid]->registerNamespace('php', 'http://php.net/xpath');
+            //$_xpaths[$uid]->registerPhpFunctions('isThisVisible');
             return $_xpaths[$uid];
+        }
+    }
+    
+    // Шорткат для xpath. Третий параметр: если true, то делать query, иначе evaluate;
+    function evaluateXPath($el, $xpath, $forceNodeList = false) {
+        if (!isset($el->ownerDocument)) {
+            if ($forceNodeList) {
+                return getXPath($el)->evaluate($xpath);
+            } else {
+                return getXPath($el)->query($xpath);
+            }
+        } else {
+            if ($forceNodeList) {
+                return getXPath($el->ownerDocument)->evaluate($xpath, $el);
+            } else {
+                return getXPath($el->ownerDocument)->query($xpath, $el);
+            }
         }
     }
 
     // Ищет в документе блок, указанный с помощью hash, возвращает DOMNode
     function findBlock($doc, $hash = array()) {
-        $xpath = getXPath($doc);
         if (isset($hash['id'])) {
             // TODO: эскейпить параметры!
-            $blocks = $xpath->evaluate('//[@sxml:id=\''.$hash['id'].'\']');
+            $blocks = evaluateXPath($doc, '//[@sxml:id=\''.$hash['id'].'\']');
             if ($blocks->length > 0) {
                 $block = $blocks.item(0);
             }
         } elseif (isset($hash['class']) && isset($hash['inst'])) {
-            $blocks = $xpath->evaluate('//[@sxml:id=\''.$hash['id'].'\']');
+            $blocks = evaluateXPath($doc, '//[@sxml:id=\''.$hash['id'].'\']');
             if ($blocks->length > 0) {
                 $block = $blocks.item(0);
             }
         } else {
             $block = $doc->documentElement;
         }
+        return $block;
         // TODO: выбирать по счёту // вроде уже отказались, вместо этого это будет делать processBlock
     }
 
@@ -79,13 +117,13 @@
         //       select * from {from} where {where} limit {first},{last-first}   
         //
         if (isInheritedlyVisible($block)) {
-            $block->setAttributeNS($SXMLParams['ns'], 'source', local2global($from));
-            if ($block->hasAttributeNS($SXMLParams['ns', 'enumerable')) {
-                $block->setAttributeNS($SXMLParams['ns'], 'range', $hash['range']); // Говорим processElement'у, что из этого блока надо будет выбрать 
+            setSXMLAttr($block, 'source', local2global($from));
+            if (hasSXMLAttr($block, 'enumerable')) {
+                setSXMLAttr($block, 'range', $hash['range']); // Говорим processElement'у, что из этого блока надо будет выбрать 
             }
             return $block;
         } else {
-            return $doc->createTextNode('') // TODO: что возвращать, когда нечего?
+            return $doc->createTextNode(''); // TODO: что возвращать, когда нечего?
         }
     }
 
@@ -104,7 +142,7 @@
         if (in_array($_SXML['user'], $list)) {
             return true;
         }
-        foreach ($grp as $i => $group)
+        foreach ($grp as $i => $group) {
             if (in_array('#' . $group, $list)) {
                 return true;
             }
@@ -114,7 +152,7 @@
 
     // Проверяет полное условие видимости блока, с проходом вверх по дереву (собираем правила всех родителей, проверяем их пересечение)
     function isInheritedlyVisible($el) {
-        $tests = getXPath($el->document)->evaluate('ancestor-or-self::*/@sxml:visible-to', $el));
+        $tests = evaluateXPath($el, 'ancestor-or-self::*/@sxml:visible-to');
         if ($tests->length > 0) {
             for ($i == 0; $i < $tests->length; $i++) {
                 $newlist = explode(' ', $tests->item($i)->value);
@@ -136,27 +174,35 @@
 
     // Проверяет условие видимости конкретного элемента (вверх по дереву не ходит)
     function isThisVisible($el) {
-        if (!$el->hasAttributeNS($SXMLParams['ns'], 'visible-to')) {
+        if (!hasSXMLAttr($el, 'visible-to')) {
             return true;
         } else {
-            return isVisible(explode(' ', $el->getAttributeNS($SXMLParams['ns'], 'visible-to')));
+            return isVisible(explode(' ', getSXMLAttr($el, 'visible-to')));
         }
     }
 
     // Есть ли дети с настройками приватности
     function hasHiddenChildren($el) {
-        return getXPath($el->document)->evaluate('boolean(./*[@visible-to])') === true) {
+        return evaluateXPath($el, 'boolean(./*[@visible-to])');
     }
 
     // Возвращает список всех ограниченно видимых потомков 
     function getVisibleChildElements($el) {
-        return getXPath($el->document)->query('./*[php:function("isThisVisible", .)=true()]', $el);
+        // Неприятный костыль, но нужно для того, чтобы у getVisible... и getAll... был одинаковый интерфейс с ->item();
+        $f = $el->ownerDocument->createDocumentFragment();
+        foreach($el->childNodes as $i => $child) {
+            if ($child->nodeType == XML_ELEMENT_NODE && isThisVisible($child)) {
+                $f->appendChild($child);
+            }
+        }
+        return $f->childNodes;
+        // return evaluateXPath($el, './*[php:function("isThisVisible", .)=true()]', true); // не работает на php ниже 5.3
     }
 
     // Только элементы, чтобы текстовые ноды не сбивали нумерацию
     function getAllChildElements($el) {
-        if ($el->hasAttributeNS($SXMLParams['ns'], 'enumerable')) {
-            return getXPath($el->document)->query('./*', $el);
+        if (hasSXMLAttr($el, 'enumerable')) {
+            return evaluateXPath($el, './*', true);
         } else {
             return $el->childNodes;
         }
@@ -164,7 +210,7 @@
 
     // Возвращает ближайшего родителя-блока
     function getNearestBlock($el) {
-        return getXPath($el->document)->query('ancestor-or-self::*[@sxml:id or @sxml:class] | /*')->item(0);
+        return evaluateXPath($el, 'ancestor-or-self::*[@sxml:id or @sxml:class] | /*', true)->item(0);
     }
 
     // Парсит range, возвращает массив first, last (в естественной нумерации, с единицы). При ошибке возвращает 0-0 или 1- (если знает total)
@@ -199,14 +245,14 @@
     // Определяет, какой в результате диапазон нам нужен. Возвращает 5 чисел - orig-first, first, last, orig-last и total
     function getRangesForElement($el) {
         // TODO переписать на нормальный язык, с && и ||
-        if ($el->hasAttributeNS($SXMLParams['ns'], 'default-range')) {
-            $range = $el->getAttributeNS($SXMLParams['ns'], 'default-range');
+        if (hasSXMLAttr($el, 'default-range')) {
+            $range = getSXMLAttr($el, 'default-range');
         }
-        if ($el->hasAttributeNS($SXMLParams['ns'], 'range')) {
-            $range = $el->getAttributeNS($SXMLParams['ns'], 'range');
+        if (hasSXMLAttr($el, 'range')) {
+            $range = getSXMLAttr($el, 'range');
         }
-        if ($el->hasAttributeNS($SXMLParams['ns'], 'total')) {
-            $total = $el->getAttributeNS($SXMLParams['ns'], 'total');
+        if (hasSXMLAttr($el, 'total')) {
+            $total = getSXMLAttr($el, 'total');
         } else {
             $total = getVisibleChildNodes($el)->length;
         }
@@ -217,9 +263,9 @@
         // Парсим оригинальный range
         $r = parseRange($range, $total);
         $or = array(1, $total);
-        if ($el->hasAttributeNS($SXMLParams['ns'], 'original-range')) {
+        if (hasSXMLAttr($el, 'original-range')) {
             $or = parseRange($range, $total);
-            $el->removeAttributeNS($SXMLParams['ns'], 'original-range');
+            removeSXMLAttr($el, 'original-range');
         }    
         return array($or[0], $r[0], $r[1], $or[1], $total);
     }
@@ -227,10 +273,10 @@
     // Выставляет правильные атрибуты first и last. На вход получает выход предыдущей функции
     function setRangeAttrs($el, $ranges) {
         // TODO: понять, не нужно ли здесь ещё sxml:ranges
-        $el->setAttributeNS($SXMLParams['ns'], 'first', $ranges[1]);
-        $el->setAttributeNS($SXMLParams['ns'], 'last', $ranges[2]);
-        if (!$el->hasAttributeNS($SXMLParams['ns'], 'total')) {
-            $el->setAttributeNS($SXMLParams['ns'], 'total', $ranges[4]);
+        setSXMLAttr($el, 'first', $ranges[1]);
+        setSXMLAttr($el, 'last', $ranges[2]);
+        if (!hasSXMLAttr($el, 'total')) {
+            setSXMLAttr($el, 'total', $ranges[4]);
         }
     }
 
@@ -262,13 +308,13 @@
             processElement($block);
         }
         if (hasHiddenChildren($el)) {
-            getNearestBlock($el)->setAttributeNS($SXMLParams['ns'], 'login-dependent', 'true');
+            setSXMLAttr(getNearestBlock($el), 'login-dependent', 'true');
             $children = getVisibleChildElements($el);
         } else {
             $children = getAllChildElements($el);
         }
         // Определяем, нужно ли нам выбирать узлы по счёту
-        if ($el->hasAttributeNS($SXMLParams['ns'], 'enumerable')) {
+        if (hasSXMLAttr($el, 'enumerable')) {
             $ranges = getRangesForElement($el);
             setRangeAttrs($el, $ranges);
             // Обрабатываем потомков
@@ -294,9 +340,9 @@
         if ($docblock->isSameNode($doc->documentElement)) {
             $doc->replaceChild($docblock, $doc->documentElement);
         }
-        $doc->documentElement->setAttributeNS($SXMLParams['ns'], 'source', local2global($doc->documentElement->baseURI));
+        setSXMLAttr($doc->documentElement, 'source', local2global($doc->documentElement->baseURI));
         if (isset($hash['range'])) {
-            $doc->documentElement->setAttributeNS($SXMLParams['ns'], 'range', $hash['range']);
+            setSXMLAttr($doc->documentElement, 'range', $hash['range']);
         }
         processElement($doc->documentElement);
     }

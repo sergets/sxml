@@ -6,7 +6,7 @@
     // и кладёт их в глобальный массив $_SXML, а также ставит заголовок 200 OK
 
     require_once '../common/setup.php';
-    require_once '../common/proc.lib.php';
+    require_once '../common/sxml.lib.php';
     
     $doc = new DOMDocument();
     $doc->load($_SXML['file']);
