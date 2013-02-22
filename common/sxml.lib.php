@@ -12,6 +12,7 @@
 
     // Возвращает объект DOMXPath.
     function getXPath($doc) {
+        global $_xpaths;
         // TODO - профилировать - оно вообще надо?
         // TODO - getXPath($el). Или даже evaluateXPath($el, '...');
         $uid = md5($doc->saveXML());
@@ -49,8 +50,12 @@
     // Загружает и парсит (xml) файл c локального пути $from для инклуда, возвращает DOMNode c выставленными included-from и т. п.
     // hash - указание блока (массив с возможными ключами: range, class+inst, id)
     function fetch($from, $hash = array()) {
+        global $SXMLParams;
         // Здесь нужно дописать парсеры урлов, в частности *.xml.php.
         $doc = new DOMDocument();
+        if (!$from) {
+            return $doc->createTextNode('');
+        }
         $doc->load($from);
         $block = findBlock($doc, $hash);
         
@@ -86,11 +91,20 @@
 
     // Проверяет, есть ли пользователь в списке $list
     function isVisible($list) {
-        // TODO: разобраться, где заполнятются $SXMLParams['user'] и $SXMLParams['groups'];
-        if (in_array($SXMLParams['user'], $list)) {
+        global $_SXML;
+        if (!isset($_SXML['user'])) {
+            return false;
+        }
+        if (isset($_SXML['groups'])) {
+            $grp = $_SXML['groups'];
+        } else {
+            $grp = array();
+        }
+        // TODO: разобраться, где заполнятются $_SXML['user'] и $_SXML['groups'];
+        if (in_array($_SXML['user'], $list)) {
             return true;
         }
-        foreach ($SXMLParams['groups'] as $i => $group)
+        foreach ($grp as $i => $group)
             if (in_array('#' . $group, $list)) {
                 return true;
             }

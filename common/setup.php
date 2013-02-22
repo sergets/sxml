@@ -38,5 +38,6 @@
     );
     
     // Дописываем автоматом параметры, которые в некоторых окружениях может быть нужно переопределять явно
-    $SXMLParams['localroot'] = $_SERVER['DOCUMENT_ROOT'].$SXMLParams['root']; // /var/www/site_ru/project
+    $SXMLParams['docroot'] = $_SERVER['DOCUMENT_ROOT']; // /var/www/site_ru
+    $SXMLParams['localroot'] = $SXMLParams['docroot'].$SXMLParams['root']; // /var/www/site_ru/project
 ?>
