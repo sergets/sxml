@@ -241,6 +241,26 @@
             return array($first, $last);
         }
     }
+    
+    // Парсит указания блока в том виде, в каком они фигурируют в адресной строке. Возвращает $hash, принимаемый findBlock
+    function parseHash($query) {
+        $hash = array();
+        if (strpos($query, '/') !== false) {
+            $q = explode($query, '/');
+            $hash['range'] = $q[1];
+            $bl = $q[0];
+        } else {
+            $bl = $query;
+        }
+        if (strpos($bl, ':') !== false) {
+            $q = explode($bl, ':');
+            $hash['class'] = $q[0];
+            $hash['inst'] = $q[1];
+        } else {
+            $hash['id'] = $bl;
+        }
+        return $hash;
+    }
 
     // Определяет, какой в результате диапазон нам нужен. Возвращает 5 чисел - orig-first, first, last, orig-last и total
     function getRangesForElement($el) {
