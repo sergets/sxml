@@ -1,35 +1,18 @@
 <?
-    // Обработчик файлов XML
+    // РћР±СЂР°Р±РѕС‚С‡РёРє С„Р°Р№Р»РѕРІ XML
     //
-    // SXML-обработчики вызываются скриптом handler.php, который выясняет
-    // имя файла 'file' и требуемые параметры 'query'
-    // и кладёт их в глобальный массив $_SXML, а также ставит заголовок 200 OK
+    // SXML-РѕР±СЂР°Р±РѕС‚С‡РёРєРё РІС‹Р·С‹РІР°СЋС‚СЃСЏ СЃРєСЂРёРїС‚РѕРј handler.php, РєРѕС‚РѕСЂС‹Р№ РІС‹СЏСЃРЅСЏРµС‚
+    // РёРјСЏ С„Р°Р№Р»Р° 'file' Рё С‚СЂРµР±СѓРµРјС‹Рµ РїР°СЂР°РјРµС‚СЂС‹ 'query'
+    // Рё РєР»Р°РґС‘С‚ РёС… РІ РіР»РѕР±Р°Р»СЊРЅС‹Р№ РјР°СЃСЃРёРІ $_SXML, Р° С‚Р°РєР¶Рµ СЃС‚Р°РІРёС‚ Р·Р°РіРѕР»РѕРІРѕРє 200 OK
 
     require_once '../common/setup.php';
     require_once '../common/sxml.lib.php';
     
     $doc = new DOMDocument();
     $doc->load($_SXML['file']);
+    $hash = parseHash($_SXML['query']);
     
-    $hash = array();
-    
-    if (strpos($_SXML['query'], '/') !== false) {
-        $q = explode($_SXML['query'], '/');
-        $hash['range'] = $q[1];
-        $bl = $q[0];
-    } else {
-        $bl = $_SXML['query'];
-    }
-    
-    if (strpos($bl, ':') !== false) {
-        $q = explode($bl, ':');
-        $hash['class'] = $q[0];
-        $hash['inst'] = $q[1];
-    } else {
-        $hash['id'] = $bl;
-    }
-    
-    // TODO: проверка allow_xml и наложение клиентского xsl, если надо.
+    // TODO: РїСЂРѕРІРµСЂРєР° allow_xml Рё РЅР°Р»РѕР¶РµРЅРёРµ РєР»РёРµРЅС‚СЃРєРѕРіРѕ xsl, РµСЃР»Рё РЅР°РґРѕ.
     
     processDocument($doc, $hash);
 

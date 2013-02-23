@@ -1,7 +1,13 @@
 <?
-    // Главный обработчик. Именно ему передаётся управление от всех обрабатываемых файлов.
-    // Выделяет имя запрошенного файла и запрос, передаёт управление соответствующему обработчику,
-    // если файл существует, иначе - странице ошибки.
+    // Р“Р»Р°РІРЅС‹Р№ РѕР±СЂР°Р±РѕС‚С‡РёРє. РРјРµРЅРЅРѕ РµРјСѓ РїРµСЂРµРґР°С‘С‚СЃСЏ СѓРїСЂР°РІР»РµРЅРёРµ РѕС‚ РІСЃРµС… РѕР±СЂР°Р±Р°С‚С‹РІР°РµРјС‹С… С„Р°Р№Р»РѕРІ.
+    // Р’С‹РґРµР»СЏРµС‚ РёРјСЏ Р·Р°РїСЂРѕС€РµРЅРЅРѕРіРѕ С„Р°Р№Р»Р° Рё Р·Р°РїСЂРѕСЃ, РїРµСЂРµРґР°С‘С‚ СѓРїСЂР°РІР»РµРЅРёРµ СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РµРјСѓ РѕР±СЂР°Р±РѕС‚С‡РёРєСѓ,
+    // РµСЃР»Рё С„Р°Р№Р» СЃСѓС‰РµСЃС‚РІСѓРµС‚, РёРЅР°С‡Рµ - СЃС‚СЂР°РЅРёС†Рµ РѕС€РёР±РєРё.
+
+    $stderr = fopen('php://stderr', 'w');
+    fwrite($stderr, 'Errors would be here');
+
+    $userid = 'sergets'; // $_SESSION['userid'];
+    error_reporting( E_ERROR + E_WARNING ); 
     
     require_once 'setup.php';
     require_once 'common.lib.php';
@@ -15,13 +21,7 @@
     $_SXML_POST = array();
     $_SXML_REQUEST = array();
 
-    $stderr = fopen('php://stderr', 'w');
-    fwrite($stderr, 'Errors would be here');
-
-    $userid = 'sergets'; // $_SESSION['userid'];
-    error_reporting( E_ERROR + E_WARNING ); 
-    
-    // Разбираем строку запроса на $_SXML['file'], $_SXML['query'] и $_SXML_GET;
+    // Р Р°Р·Р±РёСЂР°РµРј СЃС‚СЂРѕРєСѓ Р·Р°РїСЂРѕСЃР° РЅР° $_SXML['file'], $_SXML['query'] Рё $_SXML_GET;
     if (false !== ($p = strpos($_SERVER['REQUEST_URI'], '?'))) {
         $filelocator = substr($_SERVER['REQUEST_URI'], 0, $p);
         $querystring = substr($_SERVER['REQUEST_URI'], $p + 1);
@@ -33,7 +33,7 @@
             $_SXML['query'] = '';
         }
         foreach($gets as $i => $get) {
-            if (false !== ($p = strpos($get, '='))) { // Не explode, потому что может быть больше одного знака равенства, а значим только первый.
+            if (false !== ($p = strpos($get, '='))) { // РќРµ explode, РїРѕС‚РѕРјСѓ С‡С‚Рѕ РјРѕР¶РµС‚ Р±С‹С‚СЊ Р±РѕР»СЊС€Рµ РѕРґРЅРѕРіРѕ Р·РЅР°РєР° СЂР°РІРµРЅСЃС‚РІР°, Р° Р·РЅР°С‡РёРј С‚РѕР»СЊРєРѕ РїРµСЂРІС‹Р№.
                 $_SXML_GET[substr($get, 0, $p)] = substr($get, $p + 1);
             } else {
                 $_SXML_GET[substr($get)] = '';
@@ -43,9 +43,9 @@
         $filelocator = $_SERVER['REQUEST_URI'];
     }
     
-    // Ищем файл
+    // РС‰РµРј С„Р°Р№Р»
     $ready = false;
-    $_SXML['file'] = $file = resolvePath($filelocator); // $file - локальное имя файла
+    $_SXML['file'] = $file = resolvePath($filelocator); // $file - Р»РѕРєР°Р»СЊРЅРѕРµ РёРјСЏ С„Р°Р№Р»Р°
     if (!file_exists($file)) {
     
         $ready = true;
@@ -63,7 +63,7 @@
             
         }
     }
-    // Дополнительная проверка - теперь это ещё может быть index.xml
+    // Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅР°СЏ РїСЂРѕРІРµСЂРєР° - С‚РµРїРµСЂСЊ СЌС‚Рѕ РµС‰С‘ РјРѕР¶РµС‚ Р±С‹С‚СЊ index.xml
     if (!$ready) {
         $fn = substr($file, strrpos($file, '/') + 1);
         $exts = explode('.', $fn);
@@ -84,7 +84,7 @@
         }
         if (!$ready) {
         
-            // Файл направили на нас в .htaccess'е через 403, но хендлера не нашлось. Значит, это и правда 403.
+            // Р¤Р°Р№Р» РЅР°РїСЂР°РІРёР»Рё РЅР° РЅР°СЃ РІ .htaccess'Рµ С‡РµСЂРµР· 403, РЅРѕ С…РµРЅРґР»РµСЂР° РЅРµ РЅР°С€Р»РѕСЃСЊ. Р—РЅР°С‡РёС‚, СЌС‚Рѕ Рё РїСЂР°РІРґР° 403.
             $ready = true;
             header('HTTP/1.0 403 Forbidden');
             include ($SXMLParams['errors']['403']);      

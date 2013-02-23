@@ -1,20 +1,20 @@
 <?
     ///////////
-    // Утилиты
+    // РЈС‚РёР»РёС‚С‹
     ///////////
     
     require_once 'setup.php';
 
-    // Определяет, является ли $path относительным адресом и в любом случае преобразует его к локальному пути. Если путь не преобразуется к локальному,
-    // то возвращает false
+    // РћРїСЂРµРґРµР»СЏРµС‚, СЏРІР»СЏРµС‚СЃСЏ Р»Рё $path РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅС‹Рј Р°РґСЂРµСЃРѕРј Рё РІ Р»СЋР±РѕРј СЃР»СѓС‡Р°Рµ РїСЂРµРѕР±СЂР°Р·СѓРµС‚ РµРіРѕ Рє Р»РѕРєР°Р»СЊРЅРѕРјСѓ РїСѓС‚Рё. Р•СЃР»Рё РїСѓС‚СЊ РЅРµ РїСЂРµРѕР±СЂР°Р·СѓРµС‚СЃСЏ Рє Р»РѕРєР°Р»СЊРЅРѕРјСѓ,
+    // С‚Рѕ РІРѕР·РІСЂР°С‰Р°РµС‚ false
     function resolvePath($path, $baseURI = '') {
         global $SXMLParams;
-        // Возможные варианты $path: 
+        // Р’РѕР·РјРѕР¶РЅС‹Рµ РІР°СЂРёР°РЅС‚С‹ $path: 
         // - [http:]//sergets.ru/dir/dir[/../..]/file.txt
-        // - /dir/dir[/../..]/path (от DOCUMENT_ROOT)
+        // - /dir/dir[/../..]/path (РѕС‚ DOCUMENT_ROOT)
         // - dir[/..]/path
-        // Если baseURI - пустая строка, то это $_SERVER['PHP_SELF'];
-        // baseURI приводится к UNIX-виду (прямые слеши).
+        // Р•СЃР»Рё baseURI - РїСѓСЃС‚Р°СЏ СЃС‚СЂРѕРєР°, С‚Рѕ СЌС‚Рѕ $_SERVER['PHP_SELF'];
+        // baseURI РїСЂРёРІРѕРґРёС‚СЃСЏ Рє UNIX-РІРёРґСѓ (РїСЂСЏРјС‹Рµ СЃР»РµС€Рё).
         
         if ($baseURI == '') {
             $baseURI = $SXMLParams['docroot'];
@@ -28,7 +28,7 @@
             $path = substr($path, $s + strlen('//'.$SXMLParams['host'])); // [http:]//sergets.ru/dir/ -> /dir/
             if ($path == '') $path = '/';
         } else if (strpos($path, '//') !== false) { 
-            return false; // Другой сайт
+            return false; // Р”СЂСѓРіРѕР№ СЃР°Р№С‚
         }
         if (strpos($path, '/') === 0) {
             $path = str_replace('\\', '/', $SXMLParams['docroot']).$path;
