@@ -12,11 +12,31 @@
     $doc->load($_SXML['file']);
     $hash = parseHash($_SXML['query']);
     
-    // TODO: проверка allow_xml и наложение клиентского xsl, если надо.
-    
     processDocument($doc, $hash);
-
-    header('Content-type: application/xml');
-    print $doc->saveXML();
     
+    if ($_COOKIE['sxml:allow-xml'] || strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
+        header('Content-type: application/xml');
+        print $doc->saveXML();
+    } else {
+        $children = $doc->childNodes;
+        for ($i = 0; $i < $children->length; $i++) {
+            if ($children->item($i)->nodeType == XML_PI_NODE && $children->item($i)->target == 'xml-stylesheet') {
+                if (preg_match('/href=\"(.*)\"/', $children->item($i)->data, $matches) > 0) {
+                    $stylesheet = resolvePath($matches[1]);
+                }
+            }
+        }
+        if (!isset($stylesheet) || !file_exists($stylesheet)) {
+            header('Content-type: application/xml');
+            print $doc->saveXML();
+        } else {
+            header('Content-type: text/html');
+            $proc = new XSLTProcessor();
+            $ssheet = DOMDocument::load($stylesheet);
+            $proc->importStyleSheet($ssheet);
+            echo "now starting!";
+            echo $proc->transformToXML($doc);
+            echo '<!-- Проверка на XSLT --><iframe src="'.$SXMLParams['root'].'/'.$SXMLParams['folder'].'/misc/allow_xml.xml" style="display:none"/>';
+        }
+    }
 ?>
