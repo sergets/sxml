@@ -22,7 +22,7 @@
         for ($i = 0; $i < $children->length; $i++) {
             if ($children->item($i)->nodeType == XML_PI_NODE && $children->item($i)->target == 'xml-stylesheet') {
                 if (preg_match('/href=\"(.*)\"/', $children->item($i)->data, $matches) > 0) {
-                    $stylesheet = resolvePath($matches[1]);
+                    $stylesheet = resolvePath($matches[1], $_SXML['file']);
                 }
             }
         }
@@ -34,7 +34,6 @@
             $proc = new XSLTProcessor();
             $ssheet = DOMDocument::load($stylesheet);
             $proc->importStyleSheet($ssheet);
-            echo "now starting!";
             echo $proc->transformToXML($doc);
             echo '<!-- Проверка на XSLT --><iframe src="'.$SXMLParams['root'].'/'.$SXMLParams['folder'].'/misc/allow_xml.xml" style="display:none"/>';
         }

@@ -53,10 +53,16 @@
         include ($SXMLParams['errors']['404']); // 
     
     } elseif (is_dir($file)) {
-        if (!file_exists($file.'/'.$SXMLParams['dirindex'])) {
-            $_SXML['file'] = $file = $file.'/'.$SXMLParams['dirindex'];
-        } else {
-            
+        $foundindex = false;
+        foreach ($SXMLParams['dirindex'] as $i => $indexfile) {
+            if (file_exists($file.'/'.$indexfile)) {
+                $_SXML['file'] = $file = $file.'/'.$indexfile;
+                $foundindex = true;
+                break;
+            }
+        }
+        if (!$foundindex) {
+         
             $ready = true;
             header('HTTP/1.0 200 OK');
             include ($SXMLParams['dirhandler']);
