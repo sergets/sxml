@@ -13,6 +13,10 @@
             'folder' => 'sxmlight', // Имя папки с обработчиками
             'ns' => 'http://sergets.ru/sxml',
             
+            // путь к плагину для логина
+            
+            'login' => '../login',
+            
             // обработчики ошибок, пути указываются относительно handler.php
             
             'errors' => array(

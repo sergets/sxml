@@ -2,7 +2,7 @@
     // Главный обработчик. Именно ему передаётся управление от всех обрабатываемых файлов.
     // Выделяет имя запрошенного файла и запрос, передаёт управление соответствующему обработчику,
     // если файл существует, иначе - странице ошибки.
-
+    
     $stderr = fopen('php://stderr', 'w');
     fwrite($stderr, 'Errors would be here');
 
@@ -12,7 +12,9 @@
     require_once 'setup.php';
     require_once 'common.lib.php';
     
-    session_start();
+    require_once($SXMLParams['login'].'/login.inc.php');
+    
+    //session_start();
     
     if (!isset($_SXML)) {
         $_SXML = array();
@@ -46,6 +48,7 @@
     // Ищем файл
     $ready = false;
     $_SXML['file'] = $file = resolvePath($filelocator); // $file - локальное имя файла
+    
     if (!file_exists($file)) {
     
         $ready = true;

@@ -12,6 +12,6 @@
     
     if (isset($_SESSION['sxml:user'])) {
         $_SXML['user'] = $_SESSION['sxml:user'];
-        $_SXML['groups'] = getGroupsForUser[$_SXML['user']];
+        $_SXML['groups'] = getGroupsForUser($_SXML['user']);
     }
 ?>
