@@ -45,6 +45,11 @@
         $filelocator = $_SERVER['REQUEST_URI'];
     }
     
+    // Разбираем POST-запрос
+    foreach (explode('&', file_get_contents("php://input")) as $tok) {
+        $_SXML_POST[strrstr($tok, '=')] = substr(strstr($tok, '='), 1);
+    }
+    
     // Ищем файл
     $ready = false;
     $_SXML['file'] = $file = resolvePath($filelocator); // $file - локальное имя файла

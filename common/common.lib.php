@@ -49,9 +49,18 @@
             return $path;
         }
     }
-
+    
     function local2global($path) {
-        // TODO
-        return 'http://?/'.$path;
+        global $SXMLParams;
+        
+        return str_replace(str_replace('\\', '/', $SXMLParams['localroot']).'/', $SXMLParams['host'].$SXMLParams['root'], $path);
+    }
+    
+    //////
+    // Всякий строковой мусор
+    //////
+    
+    function strrstr($h, $n) {
+        return array_shift(explode($n, $h, 2));
     }
 ?>
