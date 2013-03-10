@@ -4,6 +4,7 @@
 
     require_once 'setup.php';
     require_once 'common.lib.php';
+    require_once 'db.lib.php';
 
     // Кеши для часто встречающихся объектов
     $_xpaths = array();
@@ -314,15 +315,21 @@
             $hash['range'] = $el->getAttribute('range');
         }
         $block = fetch(resolvePath($el->getAttribute('from'), $el->baseURI), $hash);
-        $el->parentElement->replaceChild($block, $el);
-        processElement($block);
+        return $block;
     }
 
     ////////////////
 
     // Основная функция. Принимает на вход DOMElement
     function processElement($el) {
-        if ($el->nodeType == XML_ELEMENT_NODE) { 
+        global $SXMLParams;
+    
+        if ($el->nodeType == XML_ELEMENT_NODE) {
+            if ($el->tagName == 'select' && $el->namespaceURI == $SXMLParams['ns']) {
+                $block = processSelect($el);
+                $el->parentElement->replaceChild($block, $el);
+                processElement($block);
+            }
             if ($el->tagName == 'include' && $el->namespaceURI == $SXMLParams['ns']) {
                 $block = processInclude($el);
                 $el->parentElement->replaceChild($block, $el);

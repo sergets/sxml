@@ -12,7 +12,7 @@
             'root' => '/', // /project.
             'folder' => 'sxmlight', // Имя папки с обработчиками
             'ns' => 'http://sergets.ru/sxml',
-            
+           
             // путь к плагину для логина
             
             'login' => '../login',
@@ -32,7 +32,7 @@
                 'jpg' => '../handlers/jpeg.php',
                 'jpeg' => '../handlers/jpeg.php'
             ),
-            
+                        
             // параметры обработки директорий - индексный файл, обработчик
             
             'dirindex' => array(
@@ -46,6 +46,9 @@
         // Дописываем автоматом параметры, которые в некоторых окружениях может быть нужно переопределять явно
         $SXMLParams['docroot'] = $_SERVER['DOCUMENT_ROOT']; // /var/www/site_ru
         $SXMLParams['localroot'] = $SXMLParams['docroot'].$SXMLParams['root']; // /var/www/site_ru/project
+        
+        // путь к базе данных для PDO
+        $SXMLParams['db'] = 'sqlite:'.$SXMLParams['localroot'].'/'.$SXMLParams['folder'].'/data/data.sqlite';
     
     }
 ?>
