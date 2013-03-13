@@ -400,6 +400,7 @@
         }
         setSXMLAttr($doc->documentElement, 'source', local2global($doc->documentElement->baseURI));
         setSXMLAttr($doc->documentElement, 'user', $_SXML['user']);
+        setSXMLAttr($doc->documentElement, 'token', $_SXML['token']);
         if (isset($hash['range'])) {
             setSXMLAttr($doc->documentElement, 'range', $hash['range']);
         }

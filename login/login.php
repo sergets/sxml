@@ -6,7 +6,7 @@
     
     if (isset($_SESSION['sxml:user'])) {
         ?><<?='?'?>xml version="1.0"<?='?'?>>
-            <sxml:error xmlns:sxml="http://sergets.ru/sxml">Already logged in</sxml:error>
+            <sxml:error xmlns:sxml="<?=$SXMLParams['ns']?>">Already logged in</sxml:error>
         <?
     } elseif (testLogin($_GET['u'])) { // TODO Нужна осмысленная проверка логина
         $user = $_GET['u'];
@@ -17,11 +17,11 @@
         setcookie('userid_current', $user, 0, $SXMLParams['root']);
         setcookie('userid_remember', $user, time() + 86400, $SXMLParams['root']);
         ?><<?='?'?>xml version="1.0"<?='?'?>>
-            <sxml:ok xmlns:sxml="http://sergets.ru/sxml" sxml:user="<?=addslashes($user)?>>"/>
+            <sxml:ok xmlns:sxml="<?=$SXMLParams['ns']?>" sxml:user="<?=addslashes($user)?>>"/>
         <?
     } else {
         ?><<?='?'?>xml version="1.0"<?='?'?>>
-            <sxml:error xmlns:sxml="http://sergets.ru/sxml">Login sequence failed</sxml:error>
+            <sxml:error xmlns:sxml="<?=$SXMLParams['ns']?>">Login sequence failed</sxml:error>
         <?
     }
 ?>

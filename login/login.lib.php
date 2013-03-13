@@ -1,4 +1,6 @@
 <?
+    require_once('../common/db.lib.php');
+
     function getGroupsForUser($user) {
         return array();
     }

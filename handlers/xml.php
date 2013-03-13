@@ -11,10 +11,46 @@
     $doc = new DOMDocument();
     $doc->load($_SXML['file']);
     $hash = parseHash($_SXML['query']);
+
+    // Ищем и заполняем переменные $_SXML['vars']:
     
+
+    // Выполняем действия
+    if (isset($_SXML_POST['sxml:action'])
+                    && ($actions = evaluateXPath($doc, '//sxml:action[@name=\''.addslashes($_SXML_POST['sxml:action']).'\']', true))
+                    && ($actions->length > 0)) {
+        $laconic = !isset($_SXML_POST['sxml:verbose']);
+        if ($_SXML_POST['sxml:token'] !== $_SXML['token']) {
+            $error = $doc // TODO Вынести формирование ошибки в common.lib.php
+                ->createElementNS($SXMLParams['ns'], 'error')
+                ->appendChild(
+                    $doc->createTextNode('Invalid token')
+                );
+            $doc->replaceChild($error, $laconic ? $doc->documentElement : $actions->item(0));
+        }
+        $commands = evaluateXPath($actions->item(0), 
+                    '//(sxml:query|sxml:select|sxml:insert|sxml:delete|sxml:edit|sxml:permit-view|sxml:permit-edit)');
+        getDB()->beginTransaction();
+        for ($i = 0; $i < $commands->length; $i++) {
+            $ok = processAction($commands->item($i));
+        }
+        getDB()->commit();
+        if ($ok) {
+            $error = $doc->createElementNS($SXMLParams['ns'], 'ok');
+        } else {
+            $error = $doc
+                ->createElementNS($SXMLParams['ns'], 'error')
+                ->appendChild(
+                    $doc->createTextNode('Database problems')
+                );
+        }
+        $doc->replaceChild($error, $laconic ? $doc->documentElement : $actions->item(0));
+    }
+    
+    // Обрабатываем документ
     processDocument($doc, $hash);
     
-    if ($_COOKIE['sxml:allow-xml'] || strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
+    if ($_COOKIE['sxml:allow-xml'] || strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') { // <- TODO: мобильные!
         header('Content-type: application/xml');
         print $doc->saveXML();
     } else {
