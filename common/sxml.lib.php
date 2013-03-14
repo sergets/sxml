@@ -215,28 +215,43 @@
         if (!is_numeric($total)) {
             return array(0, 0);
         } else {
-            if (is_numeric($range) && $range > 0) { // /34
-                return array($range, $range);
+            $fr = parseFreeRange($range);
+            if ($fr[0] === false && $fr[2] !== false) {
+                return array($total - $fr[2] + 1, $total - $fr[3] + 1);
+            } elseif ($fr[1] !== false) {
+                return array($fr[0], $fr[1]);
+            } elseif ($fr[0] !== false) {
+                return array($fr[0], $total);
+            } else {
+                return array(1, $total); // Ошибка, показывай всё
             }
-            $a = explode('-', $range);
-            $first = $a[0];
-            $last = $a[1];
-            if ((!isset($first) || !is_numeric($first) && $first !== '')
-                || (!isset($last) || !is_numeric($last) && $last !== '')
-                || ($range == '-')) { // Ошибка
-                return array(1, $total); 
-            }
-            if ($first == '') { // /-5
-                return array($total - $last + 1, $total - $last + 1); 
-            }
-            if ($last == '') { // /10-
-                return array($first, $total);
-            }
-            if ($last < $first) {
-                return array($total - $first + 1, $total - $last + 1);
-            }
-            return array($first, $last);
         }
+    }
+    
+    // Парсит range при неизвестном total. Возвращает массив [first, last, first from end, last from end]:
+    // 1-2 => [1, 2, false, false]; 5-4 => [false, false, 5, 4];
+    function parseFreeRange($range) {
+        if (is_numeric($range) && $range > 0) { // /34
+            return array($range, $range, false, false);
+        }
+        $a = explode('-', $range);
+        $first = $a[0];
+        $last = $a[1];
+        if ((!isset($first) || !is_numeric($first) && $first !== '')
+            || (!isset($last) || !is_numeric($last) && $last !== '')
+            || ($range == '-')) { // Ошибка
+            return array(false, false, false, false); 
+        }
+        if ($first == '') { // /-5
+            return array(false, false, $last, $last); 
+        }
+        if ($last == '') { // /10-
+            return array($first, false, false, false);
+        }
+        if ($last < $first) {
+            return array(false, false, $first, $last);
+        }
+        return array($first, $last, false, false);
     }
     
     // Парсит указания блока в том виде, в каком они фигурируют в адресной строке. Возвращает $hash, принимаемый findBlock
@@ -370,17 +385,21 @@
     }
 
     // Создаёт элемент sxml:error
-    function createError($doc, $errCode) {
+    function createError($doc, $errCode, $text = false) {
         global $SXMLParams;
         $messages = array(
             1 => 'Элементов не найдено',
-            2 => 'Файл не найден'
+            2 => 'Файл не найден',
+            3 => 'Неожиданная ошибка базы данных',
+            4 => 'Неправильный запрос к базе данных'
         );
         $error = $doc->createElementNS($SXMLParams['ns'], 'error');
-        if (isset($messages[$errCode])) {
-            $text = $messages[$errCode];
-        } else {
-            $text = 'Ошибка SXML, код: '. $errCode;
+        if (!$text) {
+            if (isset($messages[$errCode])) {
+                $text = $messages[$errCode];
+            } else {
+                $text = 'Ошибка SXML, код: '. $errCode;
+            }
         }
         $error->setAttribute('code', $errCode);
         $error->appendChild($doc->createTextNode($text));
