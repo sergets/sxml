@@ -332,7 +332,30 @@
         $block = fetch(resolvePath($el->getAttribute('from'), $el->baseURI), $hash);
         return $block;
     }
-
+    
+    // Собирает sxml:vars
+    
+    function fillVars($doc);
+        global $_SXML, $_SXML_GET, $_SXML_POST;
+        
+        $vartags = evaluateXPath($doc, '//sxml:var');
+        for ($i = 0; $i < $vartags->length; $i++) {
+            $var = $vartags->item($i);
+            if ($var->hasAttribute('name') && $var->hasAttribute('from') && $var->hasAttribute('value')) {
+                $name = $var->getAttribute('name');
+                $from = $var->getAttribute('from');
+                $value = $var->getAttribute('value');
+                if ($from == 'get') {
+                    $_SXML['vars'][$name] = $_SXML_GET[$value];
+                } elseif ($from == 'post') {
+                    $_SXML['vars'][$name] = $_SXML_POST[$value];
+                } elseif ($from == 'sxml') {
+                    $_SXML['vars'][$name] = $_SXML[$value];
+                }
+            }
+        }
+    }
+    
     ////////////////
 
     // Основная функция. Принимает на вход DOMElement

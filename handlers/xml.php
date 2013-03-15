@@ -12,8 +12,7 @@
     $doc->load($_SXML['file']);
     $hash = parseHash($_SXML['query']);
 
-    // Ищем и заполняем переменные $_SXML['vars']:
-    
+    fillVars($doc);
 
     // Выполняем действия
     if (isset($_SXML_POST['sxml:action'])
