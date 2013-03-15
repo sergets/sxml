@@ -44,15 +44,17 @@
         $restricted = $db
             ->prepare('select count(*) from `sxml:select` where (`sxml:visible-to` not null)')
             ->exec()
-            ->fetchAll()[0][0];
-        if ($restricted > 0 || $ranges[0] === $ranges[1] === $ranges[2] === $ranges[3] === false) {
+            ->fetchAll();
+        $restricted = $restricted[0][0];
+        if ($restricted > 0 || ($ranges[0] === false && $ranges[1] === false && $ranges[2] === false && $ranges[3] === false)) {
             $res = processQuery('select * from `sxml:select`');
         } else {
             $total = $db
                 ->prepare('select count(*) from `sxml:select`')
                 ->exec()
-                ->fetchAll()[0][0];
-            if ($ranges[0] !=== false) {
+                ->fetchAll();
+            $total = $total[0][0];
+            if ($ranges[0] !== false) {
                 if ($ranges[1] === false) { // 2-
                     $res = processQuery('select * from `sxml:select` limit -1 offset '.$ranges[0]);
                     $range = $ranges[0].'-';
