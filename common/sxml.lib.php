@@ -335,7 +335,7 @@
     
     // Собирает sxml:vars
     
-    function fillVars($doc);
+    function fillVars($doc) {
         global $_SXML, $_SXML_GET, $_SXML_POST;
         
         $vartags = evaluateXPath($doc, '//sxml:var');
