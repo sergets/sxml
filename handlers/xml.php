@@ -46,8 +46,22 @@
         $doc->replaceChild($error, $laconic ? $doc->documentElement : $actions->item(0));
     }
     
+    dLog('Before processDocument');
+    
     // Обрабатываем документ
     processDocument($doc, $hash);
+    
+    // Лог отладки
+    $debug = $doc->createElementNS($SXMLParams['ns'], 'debug-log');
+    foreach($_SXMLLog as $i => $entry) {
+        $e = $doc->createElementNS($SXMLParams['ns'], 'debug-entry');
+        $e->setAttribute('text', $entry[0]);
+        if (isset($entry[1])) {
+            $e->appendChild($doc->createTextNode($entry[1]));
+        }
+        $debug->appendChild($e);
+    }
+    $doc->documentElement->appendChild($debug);
     
     if ($_COOKIE['sxml:allow-xml'] || strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') { // <- TODO: мобильные!
         header('Content-type: application/xml');

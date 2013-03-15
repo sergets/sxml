@@ -63,4 +63,20 @@
     function strrstr($h, $n) {
         return array_shift(explode($n, $h, 2));
     }
+    
+    //////
+    // Отладка
+    /////
+    
+    $_SXMLLog = array();
+    
+    function dLog($text, $var = null) {
+        global $_SXMLLog; 
+        if (isset($var)) {
+            $v = print_r($var, true);
+            $_SXMLLog[] = array($text, $v);
+        } else {
+            $_SXMLLog[] = array($text, $v);
+        }
+    }
 ?>
