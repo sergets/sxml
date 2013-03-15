@@ -75,8 +75,23 @@
     // Обрабатывает инструкцию <sxml:insert/> - допиленный INSERT
     // <sxml:insert to=""><field default="123">some unescaped sql :data</field><field>where :vars are substituded from POST</field></sxml:insert>
     function processInsert($el, $vars) {
-        $db = getDB();
-        return null;
+        global $SXMLParams, $_SXML;
+        $table = $el->getAtrribute('into');
+        $cols = evaluateXPath($el, './col', true);
+        $data = array();
+        for ($i = 0; $i < $cols->length; $i++) {
+            if ($cols->item($i)->tagName == 'col') {
+                $name = $cols->item($i)->getAttribute('name');
+            } elseif ($cols->item($i)->namespaceURI == $SXMLParams['ns']) {
+                $name = 'sxml:' . $cols->item($i)->tagName;
+            } else {
+                $name = $cols->item($i)->tagName;
+            }
+            $data[$name] = $cols->item($i)->textContent;
+        }
+        return processQuery('create table if not exists `'.$table.'` (`'.join('`,`', array_keys($data)).'`, '
+            . '`sxml:editable-to`, `sxml:visible-to`, `sxml:time`, `sxml:user`);'
+            . 'insert into `'.$table.'` values('.join(',', $data).', null, null, \''.date(DATE_ATOM).'\', :__sxml_user)', $vars + array(':__sxml_user' => $_SXML['user']));
     }
     
     // Обрабатывает инструкцию <sxml:delete/> - допиленный DELETE
@@ -106,7 +121,7 @@
             }
             foreach ($el->childNodes as $i => $child) {
                 if (($child->nodeType === XML_ATTRIBUTE_NODE)
-                                && (!in_array(array('from', 'where', 'order-by', 'what', 'tag', 'entry', 'attrs'), $child->name))) {
+                                && (!in_array(array('from', 'where', 'into', 'order-by', 'what', 'tag', 'entry', 'attrs'), $child->name))) {
                     $res->appendChild($child->cloneNode(true)); // TODO: true?
                 }
             }
