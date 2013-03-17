@@ -335,7 +335,9 @@
             $hash['range'] = $el->getAttribute('range');
         }
         $block = fetch(resolvePath($el->getAttribute('from'), $el->baseURI), $hash);
-        return $block;
+        $localBlock = $el->ownerDocument->importNode($block);
+        $el->parentNode->replaceChild($localBlock, $el);
+        return $localBlock;
     }
     
     /////////////
@@ -430,7 +432,6 @@
                 }
                 if ($el->localName == 'include') {
                     $block = processInclude($el);
-                    $el->parentElement->replaceChild($block, $el);
                     processElement($block);
                 }
             }
