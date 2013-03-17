@@ -29,7 +29,12 @@
     
     function setSXMLAttr($el, $attr, $val) {
         global $SXMLParams;
-        return $el->setAttributeNS($SXMLParams['ns'], $attr, $val);
+        return $el->setAttributeNS($SXMLParams['ns'], 'sxml:' . $attr, $val);
+    }
+    
+    function createSXMLElem($doc, $name) {
+        global $SXMLParams;
+        return $doc->createElementNS($SXMLParams['ns'], $name, $val);
     }
 
     // Возвращает объект DOMXPath.
@@ -125,7 +130,7 @@
     }
 
     // Проверяет, есть ли пользователь в списке $list
-    function isVisible($list) {
+    function isPermitted($list) {
         global $_SXML;
         if (!isset($_SXML['user'])) {
             return false;
@@ -163,7 +168,7 @@
                     }
                 }
             }
-            return isVisible($list);
+            return isPermitted($list);
         } else {
             return true;
         }
@@ -174,7 +179,7 @@
         if (!hasSXMLAttr($el, 'visible-to')) {
             return true;
         } else {
-            return isVisible(explode(' ', getSXMLAttr($el, 'visible-to')));
+            return isPermitted(explode(' ', getSXMLAttr($el, 'visible-to')));
         }
     }
 
@@ -333,11 +338,16 @@
         return $block;
     }
     
+    /////////////
+    
     // Собирает sxml:vars
     
     function fillVars($doc) {
         global $_SXML, $_SXML_GET, $_SXML_POST;
         
+        $_SXML['vars'] = array(
+            'user' => $_SXML['user']
+        );
         $vartags = evaluateXPath($doc, '//sxml:var');
         for ($i = 0; $i < $vartags->length; $i++) {
             $var = $vartags->item($i);
@@ -356,22 +366,73 @@
         }
     }
     
+    function executeAction($action, $doc) {
+        global $_SXML, $_SXML_POST;
+    
+        if (($actions = evaluateXPath($doc, '//sxml:action[@name=\''.addslashes($_SXML_POST['sxml:action']).'\']', true)) && ($actions->length > 0)) {
+            $laconic = !isset($_SXML_POST['sxml:verbose']);
+            if ($_SXML_POST['sxml:token'] !== $_SXML['token']) {
+                $actionResult = createError($doc, 5);
+            } else {
+                $currentAction = $actions->item(0);
+                $commands = evaluateXPath($currentAction, '(.//sxml:query)|(.//sxml:select)|(.//sxml:insert)|(.//sxml:delete)|(.//sxml:edit)|(.//sxml:permit-view)|(.//sxml:permit-edit)');
+                getDB()->beginTransaction();
+                $_SXML['inTransaction'] = true;
+                $failed = false;
+                for ($i = 0; $i < $commands->length; $i++) {
+                    $currentCommand = $commands->item($i);
+                    if (!$failed) {
+                        $ok = processQuery($currentCommand);
+                        if ($ok->localName == 'error' && $ok->namespaceURI == $SXMLParams['ns']) {
+                            getDB()->rollBack();
+                            $_SXML['inTransaction'] = false;
+                            $failed = true;
+                        }
+                    } else {
+                        $currentCommand->parentNode->removeChild($currentCommand); // Игнорируем все последующие команды
+                    }
+                }
+                if (!$failed) {
+                    $_SXML['inTransaction'] = false;
+                    getDB()->commit();
+                }
+                $actionResult = $ok; // Последний error или ok - результат всего действия
+                $actionResult->setAttribute('action', $currentAction->getAttribute('name'));
+                if ($actionResult->localName !== 'error') {
+                    $afterInstructions = evaluateXPath($currentAction, '(.//sxml:update)|(.//sxml:delete)');
+                    for ($i = 0; $i < $afterInstructions->length; $i++) {
+                        $actionResult->appendChild($afterInstructions->item($i)->cloneNode(true));
+                    }
+                }
+            }
+            $replaced = $laconic? $doc->documentElement : $currentAction;
+            $replaced->parentNode->replaceChild($actionResult, $replaced);
+        }
+    }
+    
     ////////////////
 
     // Основная функция. Принимает на вход DOMElement
     function processElement($el) {
         global $SXMLParams;
+        $queries = array('select', 'insert', 'delete', 'edit', 'permit-view', 'permit-edit', 'query');
     
         if ($el->nodeType == XML_ELEMENT_NODE) {
-            if ($el->tagName == 'select' && $el->namespaceURI == $SXMLParams['ns']) {
-                $block = processSelect($el);
-                $el->parentElement->replaceChild($block, $el);
-                processElement($block);
-            }
-            if ($el->tagName == 'include' && $el->namespaceURI == $SXMLParams['ns']) {
-                $block = processInclude($el);
-                $el->parentElement->replaceChild($block, $el);
-                processElement($block);
+            if ($el->namespaceURI == $SXMLParams['ns']) {
+                if ($el->localName == 'action') { // Оставляем только сигнатуры действий, содержимое убираем
+                    for ($i = 0; $i < $el->childNodes->length; $i++) {
+                        $el->removeChild($el->childNodes->item($i));
+                    }
+                }
+                if (in_array($el->localName, $queries)) {
+                    $block = processQuery($el);
+                    processElement($block);
+                }
+                if ($el->localName == 'include') {
+                    $block = processInclude($el);
+                    $el->parentElement->replaceChild($block, $el);
+                    processElement($block);
+                }
             }
             $hidden = getEvanescentChildren($el);
             if ($hidden->length > 0) {
@@ -414,7 +475,9 @@
             1 => 'Элементов не найдено',
             2 => 'Файл не найден',
             3 => 'Неожиданная ошибка базы данных',
-            4 => 'Неправильный запрос к базе данных'
+            4 => 'Неправильный запрос к базе данных',
+            5 => 'Неправильный токен',
+            6 => 'Недостаточно прав'
         );
         $error = $doc->createElementNS($SXMLParams['ns'], 'error');
         if (!$text) {

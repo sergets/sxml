@@ -70,13 +70,15 @@
     
     $_SXMLLog = array();
     
-    function dLog($text, $var = null) {
+    /*function dLog($file, $line, $text, $var = null) {
         global $_SXMLLog; 
         if (isset($var)) {
             $v = print_r($var, true);
-            $_SXMLLog[] = array($text, $v);
+            $_SXMLLog[] = array($file, $line, $text, $v);
         } else {
-            $_SXMLLog[] = array($text, $v);
+            $_SXMLLog[] = array($file, $line, $text);
         }
-    }
+        //echo "&rarr; [<i>" . $file .':'.$line . "</i>] " . $text. ": ". $v . '<br/>';
+    }*/
+
 ?>

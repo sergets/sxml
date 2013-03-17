@@ -36,9 +36,9 @@
         }
         foreach($gets as $i => $get) {
             if (false !== ($p = strpos($get, '='))) { // Не explode, потому что может быть больше одного знака равенства, а значим только первый.
-                $_SXML_GET[substr($get, 0, $p)] = substr($get, $p + 1);
+                $_SXML_GET[urldecode(substr($get, 0, $p))] = urldecode(substr($get, $p + 1));
             } else {
-                $_SXML_GET[substr($get)] = '';
+                $_SXML_GET[urldecode(substr($get))] = '';
             }
         }
     } else {
@@ -47,7 +47,7 @@
     
     // Разбираем POST-запрос
     foreach (explode('&', file_get_contents("php://input")) as $tok) {
-        $_SXML_POST[strrstr($tok, '=')] = substr(strstr($tok, '='), 1);
+        $_SXML_POST[urldecode(strrstr($tok, '='))] = urldecode(substr(strstr($tok, '='), 1));
     }
     
     // Ищем файл
