@@ -16,7 +16,8 @@
         if (is_array($post)) {
             curl_setopt($curl, CURLOPT_POST, $post);
         }
-        $result = json_decode(curl_exec($curl));
+        $result = json_decode(curl_exec($curl), true);
+        echo $result;
         return $result; // JSON.parse(...);
     }
     
@@ -24,8 +25,15 @@
     
     // Подробности настроек протокола
     
-    $_SESSION['oauth:random_key'] = substr(md5(rand()), 0, 10);
-    $self = 'ugorodaika.ru/sxmlight/sxmlight/oauth.php?sxml:oauthkey='.$_SESSION['oauth:random_key'];
+    if (!isset($_SESSION['oauth:random_key'])) {
+        $_SESSION['oauth:random_key'] = substr(md5(rand()), 0, 10);
+    }
+    $OAuthSetup = array(
+        'self' => 'sxml/sxmlight/login/oauth.php?sxml:oauthkey='.$_SESSION['oauth:random_key'],
+        'vk_id' => '3542713',
+        'vk_secret' => 'pSdxVtb7COUga0sZEAQP'
+    );
+    
     
     // Имя пользователя в том виде, в каком оно будет в дальнейшем использоваться у нас
     function getLocalUsername($provider, $user) {
@@ -34,8 +42,10 @@
     
     // Адрес, на который ведёт кнопочка "залогиниться"
     function getProviderLoginPoint($provider) {
+        global $OAuthSetup;
+        
         if ($provider == 'vk') {
-            return 'http://oauth.vk.com/authorize?client_id=2441664&redirect_uri='.urlencode($self.'&sxml:provider=vk').'&response_type=code';
+            return 'http://oauth.vk.com/authorize?client_id='.$OAuthSetup['vk_id'].'&redirect_uri='.urlencode($OAuthSetup['self'].'&sxml:provider=vk').'&response_type=code';
         }
         return false;
     }
@@ -60,8 +70,10 @@
     
     // Запрос, который нужно сделать для проверки кода
     function getProviderValidationPoint($provider, $code) {
+        global $OAuthSetup;
+        
         if ($provider == 'vk') {
-            return 'https://oauth.vk.com/access_token?client_id=2441664&client_secret=0fDYmRanA9f3DQpVoNGB&code='.urlencode($code);
+            return 'https://oauth.vk.com/access_token?client_id='.$OAuthSetup['vk_id'].'&client_secret='.$OAuthSetup['vk_secret'].'&redirect_uri='.urlencode($OAuthSetup['self'].'&sxml:provider=vk').'&code='.urlencode($code);
         }
         return false;
     }
@@ -89,8 +101,10 @@
     
     // Возвращает токен (для ВК - массив из двух членов - token и user)
     function parseToken($provider, $results) {
+        print_r($results);
         if ($provider == 'vk') {
             if (isset($results['access_token']) && isset($results['user_id'])) {
+                echo "token ok";
                 return array(
                     'token' => $results['access_token'],
                     'user' => $results['user_id']
@@ -106,7 +120,7 @@
             if (isset($results['uid']) && isset($results['first_name']) && isset($results['last_name']) && isset($results['photo50'])) {
                 return array(
                     'user' => $results['uid'],
-                    'name' => $results['first_name'] .' '. $results['last_name']
+                    'name' => $results['first_name'] .' '. $results['last_name'],
                     'sex' => $results['sex'],
                     'additionals' => $results['userpic'],
                     'link' => 'vk.com/'.$results['screen_name']
@@ -121,24 +135,22 @@
     // Результирующие действия
     
     function success($provider, $username, $additionals) {
-        global SXMLParams;
+        global $SXMLParams;
         
         doLogin($username, $additionals);
         header('HTTP/1.1 200 OK');
         header('Content-type: application/xml');
-        ?>
-            <<?='?'?>xml version="1.0"<?='?'?>>
-            <sxml:ok action="login" xmlns:sxml="<?=$SXMLParams['ns']?>"><sxml:update login-dependent="yes"/></sxml:ok>
-        <?
+        ?><<?='?'?>xml version="1.0"<?='?'?>><?
+        ?><sxml:ok action="login" xmlns:sxml="<?=($SXMLParams['ns'])?>"><sxml:update login-dependent="yes"/></sxml:ok><?
     }
     
     function error($message) {
+        global $SXMLParams;
+        
         header('HTTP/1.1 200 OK');
         header('Content-type: application/xml');
-        ?>
-            <<?='?'?>xml version="1.0"<?='?'?>>
-            <sxml:error action="login" xmlns:sxml="<?=$SXMLParams['ns']?>"><?=htmlspecialchars($message)?></sxml:ok>
-        <?
+        ?><<?='?'?>xml version="1.0"<?='?'?>><?
+        ?><sxml:error action="login" xmlns:sxml="<?=$SXMLParams['ns']?>"><?=htmlspecialchars($message)?></sxml:error><?
     }
     
     /////
@@ -180,14 +192,16 @@
     // Основной код
     
     $provider = $_REQUEST['sxml:provider'];
-    if ($provider) {
+    if (!$provider) {
         error('Unknown provider');
     } else {
-        if (!isset($_REQUEST['sxml:oauthkey']) || ($_REQUEST['sxml:oauthkey'] !== $_SESSION['oauth:random_key'])) {
+        if (!isset($_REQUEST['sxml:oauthkey'])) {
             // Мы здесь первый раз
             if (!proceedToProvider($provider)) {
                 error('Unable to proceed: unknown provider');
             }
+        } elseif ($_REQUEST['sxml:oauthkey'] !== $_SESSION['oauth:random_key']) { 
+            error('Unable to proceed: key mismatch');
         } else {
             $code = parseProviderLoginCode($provider);
             if (!$code) {
