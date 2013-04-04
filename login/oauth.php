@@ -13,12 +13,19 @@
         curl_setopt($curl, CURLOPT_URL, $url);
         curl_setopt($curl, CURLOPT_HEADER, 0);
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 0);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0);
+
         if (is_array($post)) {
             curl_setopt($curl, CURLOPT_POST, $post);
         }
-        $result = json_decode(curl_exec($curl), true);
-        echo $result;
-        return $result; // JSON.parse(...);
+        $r = curl_exec($curl);
+        if (!$r) {
+            error(curl_error($curl));
+            return false;
+        } else {
+            return json_decode($r, true);
+        }
     }
     
     ///// 
@@ -29,7 +36,7 @@
         $_SESSION['oauth:random_key'] = substr(md5(rand()), 0, 10);
     }
     $OAuthSetup = array(
-        'self' => 'sxml/sxmlight/login/oauth.php?sxml:oauthkey='.$_SESSION['oauth:random_key'],
+        'self' => 'http://sxml/sxmlight/login/oauth.php?sxml:oauthkey='.$_SESSION['oauth:random_key'],
         'vk_id' => '3542713',
         'vk_secret' => 'pSdxVtb7COUga0sZEAQP'
     );
@@ -89,7 +96,7 @@
     // Адрес, на который нужно идти за информацией о пользователе.
     function getProviderUserinfoPoint($provider, $token) {
         if ($provider == 'vk') {
-            return 'https://api.vk.com/method/users.get?uids='.urlencode($token['user']).'&fields=uid,first_name,last_name,photo50,sex,screen_name&access_token='.urlencode($token['user']);
+            return 'https://api.vk.com/method/users.get?uids='.urlencode($token['user']).'&fields=uid,first_name,last_name,photo_50,sex,screen_name&access_token='.urlencode($token['token']);
         }
         return false;
     }
@@ -101,10 +108,8 @@
     
     // Возвращает токен (для ВК - массив из двух членов - token и user)
     function parseToken($provider, $results) {
-        print_r($results);
         if ($provider == 'vk') {
             if (isset($results['access_token']) && isset($results['user_id'])) {
-                echo "token ok";
                 return array(
                     'token' => $results['access_token'],
                     'user' => $results['user_id']
@@ -117,12 +122,12 @@
     // Возвращает информацию о пользователе (массив: user, name, sex, userpic, link)
     function parseUserinfo($provider, $results) {
         if ($provider == 'vk') {
-            if (isset($results['uid']) && isset($results['first_name']) && isset($results['last_name']) && isset($results['photo50'])) {
+            if (isset($results['uid']) && isset($results['first_name']) && isset($results['last_name']) && isset($results['photo_50'])) {
                 return array(
                     'user' => $results['uid'],
                     'name' => $results['first_name'] .' '. $results['last_name'],
                     'sex' => $results['sex'],
-                    'additionals' => $results['userpic'],
+                    'userpic' => $results['photo_50'],
                     'link' => 'vk.com/'.$results['screen_name']
                 );
             }
@@ -181,7 +186,7 @@
     function getUserinfo($provider, $token) {
         $JSON = requestJSON(getProviderUserinfoPoint($provider, $token), getProviderUserinfoParams($provider, $token));
         if ($JSON) {
-            return parseUserinfo($provider, $JSON);
+            return parseUserinfo($provider, $JSON['response'][0]);
         } else {
             return false;
         }

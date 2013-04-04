@@ -2,8 +2,7 @@
     require_once('../common/db.lib.php');
     
     function doLogin($user, $additionals) {
-    
-        $user = $_GET['u'];
+
         if (!getUser($user)) {
             saveUser($user, $additionals);
         }
@@ -38,8 +37,18 @@
         // TODO
     }
     
+    // Возвращает свойства пользователя в виде хеша
     function getUser($user) {
-        // TODO
+        
+        $db = getDB();
+        $db->exec('create table if not exists "sxml:users" ("user", "name", "link", "userpic", "sex")');
+        $result = $db->prepare('select * from "sxml:users" where ("user" = :user)')->exec(array( 'user' => $user ))->fetchAll();
+        if (count($result) !== 1) {
+            return false;
+        } else {
+            return $result;
+        }
+        
     }
     
     // Основная функция, проверяющая правильность логина
