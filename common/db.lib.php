@@ -109,7 +109,8 @@
         $query = getDB()->prepare($q);
         $vars = explode(' ', $uses);
         if (!$query) {
-            return 'DB error: malformed query';
+            $err = getDB()->errorInfo();
+            return 'DB error: '.$err[2];
         }
         foreach($_SXML['vars'] as $name => $value) {
             if (in_array($name, $vars)) {

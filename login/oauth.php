@@ -123,10 +123,15 @@
     function parseUserinfo($provider, $results) {
         if ($provider == 'vk') {
             if (isset($results['uid']) && isset($results['first_name']) && isset($results['last_name']) && isset($results['photo_50'])) {
+                switch ($results['sex']) {
+                    case '1': $sex = 'f'; break;
+                    case '2': $sex = 'm'; break;
+                    default: $sex = 'x'; break;
+                }
                 return array(
-                    'user' => $results['uid'],
+                    'user' => 'vk:'.$results['uid'],
                     'name' => $results['first_name'] .' '. $results['last_name'],
-                    'sex' => $results['sex'],
+                    'sex' => $sex,
                     'userpic' => $results['photo_50'],
                     'link' => 'vk.com/'.$results['screen_name']
                 );
@@ -216,8 +221,8 @@
                 if (!$token) {
                     error('Unable to test token');
                 } else {
-                    $userInfo = getUserinfo($provider, $token);
-                    if (!$userInfo) {
+                    $userinfo = getUserinfo($provider, $token);
+                    if (!$userinfo) {
                         error('Unable to fetch userinfo');
                     } else {
                         success($provider, $userinfo['user'], $userinfo);

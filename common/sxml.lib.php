@@ -416,14 +416,14 @@
 
     // Основная функция. Принимает на вход DOMElement
     function processElement($el) {
-        global $SXMLParams;
+        global $SXMLParams, $_SXML;
         $queries = array('select', 'insert', 'delete', 'edit', 'permit-view', 'permit-edit', 'query');
     
         if ($el->nodeType == XML_ELEMENT_NODE) {
             if ($el->namespaceURI == $SXMLParams['ns']) {
                 if ($el->localName == 'action') { // Оставляем только сигнатуры действий, содержимое убираем
-                    for ($i = 0; $i < $el->childNodes->length; $i++) {
-                        $el->removeChild($el->childNodes->item($i));
+                    while ($el->childNodes->length > 0) {
+                        $el->removeChild($el->firstChild);
                     }
                 }
                 if (in_array($el->localName, $queries)) {
@@ -441,6 +441,12 @@
                 removeInvisibleChildren($hidden);
             }
             $children = getAllChildElements($el);
+            
+            // Запоминаем пользователя
+            if (hasSXMLAttr($el, 'user')) {
+                $_SXML['found_users'][getSXMLAttr($el, 'user')] = true;
+            }
+            
             // Определяем, нужно ли нам выбирать узлы по счёту
             if (hasSXMLAttr($el, 'enumerable')) {
                 $ranges = getRangesForElement($el);
@@ -493,6 +499,41 @@
         return $error;
     }
     
+    // Создаёт список записей о пользователях, упомянутых на странице
+    function makeUsersNode($doc) {
+        global $_SXML;
+
+        $mainNode = createSXMLElem($doc, 'found-users');
+        foreach ($_SXML['found_users'] as $user => $t) {
+            $hash = getUser($user);
+            if ($hash !== false) {
+                $elem = createSXMLElem($doc, 'user');
+                $elem->setAttribute('id', $hash['user']);
+                $elem->setAttribute('name', $hash['name']);
+                $elem->setAttribute('link', $hash['link']);
+                $mainNode->appendChild($elem);
+            }
+        }
+        return $mainNode;
+    }
+    
+    // Создаёт список записей о пользователях, упомянутых на странице
+    function makeGroupsNode($doc) {
+        global $_SXML;
+        
+        $mainNode = createSXMLElem($doc, 'my-groups');
+        $groups = getGroupsForUser($_SXML['user']);
+        if ($groups) {
+            foreach ($groups as $i => $group) {
+                $elem = createSXMLElem($doc, 'group');
+                $elem->setAttribute('id', $hash['group']);
+                $elem->setAttribute('name', $hash['name']);
+                $mainNode->appendChild($elem);
+            }
+        }
+        return $mainNode;
+    }
+    
     // Основная функция. Получает на вход DOMDocument
     function processDocument($doc, $hash = array()) {
         global $_SXML;
@@ -510,6 +551,15 @@
         if (isset($hash['range'])) {
             setSXMLAttr($doc->documentElement, 'range', $hash['range']);
         }
+        $_SXML['found_users'] = array(
+            $_SXML['user'] => true
+        );
         processElement($doc->documentElement);
+        
+        // Добавляем список пользователей в начало
+        $SXMLDataNode = createSXMLElem($doc, 'data');
+        $SXMLDataNode->appendChild(makeUsersNode($doc));
+        $SXMLDataNode->appendChild(makeGroupsNode($doc));
+        $doc->documentElement->insertBefore($SXMLDataNode, $doc->documentElement->firstChild);
     }
 ?>
