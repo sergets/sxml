@@ -34,38 +34,36 @@
         } else {
             $trans = false;
         }
-        $db->exec('drop if exists view "sxml:select"');
-        $createViewQuery = 'create temporary view "sxml:select" as select * from ('.$el->getAttribute('from').')';
+        
+        $paramStringBeforeWhere = ' from ('.$el->getAttribute('from').') where ( 1 = 1 ';
+        $paramStringAfterWhere = ')';
         if ($el->hasAttribute('where')) {
-            $createViewQuery .= ' where ('.$el->getAttribute('where').')';
+            $paramStringBeforeWhere .= ' and ('.$el->getAttribute('where').')';
         }
         if ($el->hasAttribute('order-by')) {
-            $createViewQuery .= ' order by ('.$el->getAttribute('order-by').')';
+            $paramStringAfterWhere .= ' order by ('.$el->getAttribute('order-by').')';
         }
-        $createdView = processRawQuery($createViewQuery, $el->getAttribute($uses));
-        if ($createdView !== true) {
-            return $createdView;
-        }
-        $restricted = $db->query('select * from "sxml:select" where ("sxml:visible-to" not null)')->rowCount();
+        
+        $restricted = $db->query('select * '.$paramStringBeforeWhere.' and ("sxml:visible-to" not null) '.$paramStringAfterWhere)->rowCount();
         if ($restricted > 0 || ($ranges[0] === false && $ranges[1] === false && $ranges[2] === false && $ranges[3] === false)) {
-            $res = processRawQuery('select * from "sxml:select"');
+            $res = processRawQuery('select * '.$paramStringBeforeWhere.$paramStringAfterWhere, $el->getAttribute('uses'));
         } else {
-            $total = $db->query('select count(*) from "sxml:select"')->fetchAll();
+            $total = $db->query('select count(*) '.$paramStringBeforeWhere.$paramStringAfterWhere)->fetchAll();
             $total = current($total[0]);
             if ($ranges[0] !== false) {
                 if ($ranges[1] === false) { // 2-
-                    $res = processRawQuery('select * from "sxml:select" limit -1 offset '.$ranges[0]);
+                    $res = processRawQuery('select * '.$paramStringBeforeWhere.$paramStringAfterWhere.' limit -1 offset '.$ranges[0], $el->getAttribute('uses'));
                     $range = $ranges[0].'-';
                 } else { // 1-10
-                    $res = processRawQuery('select * from "sxml:select" limit '.($ranges[1] - $ranges[0] + 1).' offset '.$ranges[0]);
+                    $res = processRawQuery('select * '.$paramStringBeforeWhere.$paramStringAfterWhere.' limit '.($ranges[1] - $ranges[0] + 1).' offset '.$ranges[0], $el->getAttribute('uses'));
                     $range = $ranges[0].'-'.$ranges[1];
                 }
             } else { // 7-4
-                $res = processRawQuery('select * from "sxml:select" limit '.($ranges[2] - $ranges[3] + 1).' offset '.($total - $ranges[2]));
+                $res = processRawQuery('select * '.$paramStringBeforeWhere.$paramStringAfterWhere.' limit '.($ranges[2] - $ranges[3] + 1).' offset '.($total - $ranges[2]), $el->getAttribute('uses'));
                 $range = $ranges[2].'-'.$ranges[3];
             }
         }
-        $db->exec('drop if exists view "sxml:select"');
+        
         if ($trans) {
             $_SXML['inTransaction'] = false;
             $db->commit();
@@ -105,6 +103,9 @@
     // Обрабатывает сырую транзакцию, возвращает массив результатов, либо true, либо строку с ошибкой
     function processRawQuery($q, $uses = null) {
         global $_SXML;
+        
+        echo "[".$q."] @";
+        print_r($uses);
 
         $query = getDB()->prepare($q);
         $vars = explode(' ', $uses);
@@ -133,7 +134,8 @@
     // Формирует результирующий элемент
     function buildResult($el, $result, $range = false) {
         $doc = $el->ownerDocument;
-        if (is_array($result)) {
+        if (is_array($result) || $result === true && ($el->localName == 'select' || $el->hasAttribute('nook'))) { 
+            // Если это запрос не на действие, то в любом случае показываем нужный тег 
             if ($el->hasAttribute('store')) {
                 $_SXML['vars'][$el->getAttribute('store')] = current($result[0]);
             } else {
@@ -156,31 +158,33 @@
                 for ($i = 0; $i < $el->attributes->length; $i++) {
                     $child = $el->attributes->item($i);
                     if (!in_array($child->localName, array('from', 'where', 'into', 'order-by', 'what', 'tag', 'entry', 'attrs', 'uses', 'store'))) {
-                        $res->setAttributeNS($child->namespaceURI, $child->nodeName, $child->nodeValue); // TODO: true?
+                        $res->setAttributeNS($child->namespaceURI, $child->nodeName, $child->nodeValue);
                     }
                 }
                 $attrs = explode(' ', $el->getAttribute('attrs'));
-                foreach ($result as $i => $row) {
-                    $entry = $el->getAttribute('entry');
-                    if (substr($entry, 0, 5) === 'sxml:') {
-                        $rowElem = createSXMLElem($doc, $SXMLParams['ns'], substr($entry, 5)); 
-                    } else {
-                        $rowElem = $doc->createElement($entry); 
-                    }
-                    foreach ($row as $name => $value) {
-                        if ($value != null) {
-                            if (substr($name, 0, 5) === 'sxml:') {
-                                setSXMLAttr($rowElem, substr($name, 5), $value);
-                            } elseif (in_array($name, $attrs)) {
-                                $rowElem->setAttribute($name, $value);
-                            } else {
-                                $q = $doc->createElement($name);
-                                $q->appendChild($doc->createTextNode($value));
-                                $rowElem->appendChild($q);
+                if (is_array($result)) {  // Иначе в ответе ничего 
+                    foreach ($result as $i => $row) {
+                        $entry = $el->getAttribute('entry');
+                        if (substr($entry, 0, 5) === 'sxml:') {
+                            $rowElem = createSXMLElem($doc, $SXMLParams['ns'], substr($entry, 5)); 
+                        } else {
+                            $rowElem = $doc->createElement($entry); 
+                        }
+                        foreach ($row as $name => $value) {
+                            if ($value != null) {
+                                if (substr($name, 0, 5) === 'sxml:') {
+                                    setSXMLAttr($rowElem, substr($name, 5), $value);
+                                } elseif (in_array($name, $attrs)) {
+                                    $rowElem->setAttribute($name, $value);
+                                } else {
+                                    $q = $doc->createElement($name);
+                                    $q->appendChild($doc->createTextNode($value));
+                                    $rowElem->appendChild($q);
+                                }
                             }
                         }
+                        $res->appendChild($rowElem);
                     }
-                    $res->appendChild($rowElem);
                 }
                 return $res;
             }
