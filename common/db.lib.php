@@ -103,9 +103,6 @@
     // Обрабатывает сырую транзакцию, возвращает массив результатов, либо true, либо строку с ошибкой
     function processRawQuery($q, $uses = null) {
         global $_SXML;
-        
-        echo "[".$q."] @";
-        print_r($uses);
 
         $query = getDB()->prepare($q);
         $vars = explode(' ', $uses);
