@@ -4,7 +4,7 @@
     // Инициализиация
     getDB()->query('create table if not exists "sxml:users" ("user" unique, "name", "link", "userpic", "sex")');
     getDB()->query('create table if not exists "sxml:membership" ("user", "group")');
-    getDB()->query('create table if not exists "sxml:groups" ("group", "name")');
+    getDB()->query('create table if not exists "sxml:groups" ("group" unique, "name")');
     // //
     
     function doLogin($user, $hash) {

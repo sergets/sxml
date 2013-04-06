@@ -17,8 +17,14 @@
         // Проверяем токен
         if ($_SXML_POST['sxml:token'] !== $_SXML['token']) {
             $doc->replaceChild(createError($doc, 5), $doc->documentElement);
+        } elseif (!($actions = evaluateXPath($doc, '//sxml:action[@name=\''.addslashes($_SXML_POST['sxml:action']).'\']', true)) || ($actions->length < 1)) {
+            $doc->replaceChild(createError($doc, 7), $doc->documentElement); // Нет такого действия в документе
+        } else {
+            $_SXML['action'] = $_SXML_POST['sxml:action'];
+            $_SXML['laconic'] = !isset($_SXML_POST['sxml:verbose']);
         }
-        executeAction($_SXML_POST['sxml:action'], $doc, !isset($_SXML_POST['sxml:verbose']));
+        
+        // executeAction($_SXML_POST['sxml:action'], $doc, !isset($_SXML_POST['sxml:verbose']));
     }
   
     // Обрабатываем документ

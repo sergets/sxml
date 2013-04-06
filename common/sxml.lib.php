@@ -374,68 +374,66 @@
     
     // Выполняет в документе действие: ищёт <sxml:action> с соответствующим именем, прогоняет все элементы. Если элемент первого уровня вышел с ошибкой, то вся завершается с ошибкой,
     // Иначе с результатом всех ok первого уровня. Здесь хинт: можно игнорировать ошибки того или иного запроса, просто спрятав его под неисчезающий тег (т. е. не под sxml:if)
-    function executeAction($action, $doc, $laconic = true) {
+    function executeAction($currentAction) {
         global $_SXML, $SXMLParams, $_SXML_VARS;
-    
-        if (!($actions = evaluateXPath($doc, '//sxml:action[@name=\''.addslashes($action).'\']', true)) || ($actions->length < 1)) {
-            $actionResult = createError($doc, 7); // Нет такого действия в документе
+        
+        $doc = $currentAction->ownerDocument;
+        
+        if (!isInheritedlyVisible($currentAction)) {
+            $actionResult = createError($doc, 6); // Или лучше даже 7, чтобы никто не догадался о невидимом действии 
+        } elseif ($currentAction->hasAttribute('open-to') && !stringPermits($currentAction->getAttribute('open-to'))) {
+            $actionResult = createError($doc, 6); // Явно запрещено прямо в файле
+        } elseif ($currentAction->hasAttribute('open-as') && !stringPermits($_SXML_VARS[$currentAction->getAttribute('open-as')])) {
+            $actionResult = createError($doc, 6); // Запрещено согласно значению переменной
+        } elseif ($currentAction->hasAttribute('open-as-from') && !stringPermits(simpleSelect('sxml:open-to', $currentAction->getAttribute('open-as-from'), $currentAction->hasAttribute('open-as-where') ? $currentAction->getAttribute('open-as-where') : null, $currentAction->hasAttribute('open-as-uses') ? $currentAction->getAttribute('open-as-uses') : null))) {
+            $actionResult = createError($doc, 6); // Запрещено по результатам запроса из базы
         } else {
-            $currentAction = $actions->item(0); // Выполняем только первое дейсвие
+        
+            getDB()->beginTransaction();
+            $_SXML['inTransaction'] = true;
+            $failed = false;
             
-            if (!isInheritedlyVisible($currentAction)) {
-                $actionResult = createError($doc, 6); // Или лучше даже 7, чтобы никто не догадался о невидимом действии 
-            } elseif ($currentAction->hasAttribute('open-to') && !stringPermits($currentAction->getAttribute('open-to'))) {
-                $actionResult = createError($doc, 6); // Явно запрещено прямо в файле
-            } elseif ($currentAction->hasAttribute('open-as') && !stringPermits($_SXML_VARS[$currentAction->getAttribute('open-as')])) {
-                $actionResult = createError($doc, 6); // Запрещено согласно значению переменной
-            } elseif ($currentAction->hasAttribute('open-as-from') && !stringPermits(simpleSelect('sxml:open-to', $currentAction->getAttribute('open-as-from'), $currentAction->hasAttribute('open-as-where') ? $currentAction->getAttribute('open-as-where') : null, $currentAction->hasAttribute('open-as-uses') ? $currentAction->getAttribute('open-as-uses') : null))) {
-                $actionResult = createError($doc, 6); // Запрещено по результатам запроса из базы
-            } else {
-            
-                getDB()->beginTransaction();
-                $_SXML['inTransaction'] = true;
-                $failed = false;
-                
-                $children = getAllChildElements($currentAction);
-                for ($i = 0; $i < $children->length; $i++) {
-                    if (!$failed) {
-                        $item = $children->item($i);
-                        $stepResult = processElement($item);
-                        if ($stepResult !== null && $stepResult->nodeType == XML_ELEMENT_NODE) {    // Если мы видим какой-то тег в результате
-                            if ($stepResult->localName == 'error' && $stepResult->namespaceURI == $SXMLParams['ns']) {
-                                $actionResult = $item;
-                                getDB()->rollBack();
-                                $_SXML['inTransaction'] = false;
-                                $failed = true;
-                            }
+            $children = getAllChildElements($currentAction);
+            for ($i = 0; $i < $children->length; $i++) {
+                if (!$failed) {
+                    $item = $children->item($i);
+                    $stepResult = processElement($item);
+                    if ($stepResult !== null && $stepResult->nodeType == XML_ELEMENT_NODE) {    // Если мы видим какой-то тег в результате
+                        if ($stepResult->localName == 'error' && $stepResult->namespaceURI == $SXMLParams['ns']) {
+                            $actionResult = $item;
+                            getDB()->rollBack();
+                            $_SXML['inTransaction'] = false;
+                            $failed = true;
                         }
                     }
                 }
+            }
+            
+            if (!$failed) {
+                $_SXML['inTransaction'] = false;
+                getDB()->commit();
                 
-                if (!$failed) {
-                    $_SXML['inTransaction'] = false;
-                    getDB()->commit();
-                    
-                    // Результат - элемент <sxml:ok> c атрибутом update собранным со всех дочерних <ok'ев>
-                    $actionResult = createSXMLElem($doc, 'ok');
-                    $updates = evaluateXPath($currentAction, '/sxml:ok/@update', true);
-                    $updateString = '';
-                    foreach($updates as $i => $updateAttr) {
-                        $updateString .= ' ' . $updateAttr->nodeValue;
-                    }
-                    $actionResult->setAttribute('update', $updateString);
+                // Результат - элемент <sxml:ok> c атрибутом update собранным со всех дочерних <ok'ев>
+                $actionResult = createSXMLElem($doc, 'ok');
+                $updates = evaluateXPath($currentAction, '/sxml:ok/@update', true);
+                $updateString = '';
+                foreach($updates as $i => $updateAttr) {
+                    $updateString .= ' ' . $updateAttr->nodeValue;
                 }
+                $actionResult->setAttribute('update', $updateString);
             }
         }
         $actionResult->setAttribute('action', $currentAction->getAttribute('name'));
 
-        $replaced = $laconic? $doc->documentElement : $currentAction;
+        $replaced = $_SXML['laconic']? $doc->documentElement : $currentAction;
         $replaced->parentNode->replaceChild($actionResult, $replaced);
+        return ($_SXML['laconic']? false : $currentAction);
     }
     
     ////////////////
 
-    // Основная функция. Принимает на вход DOMElement. Возвращает либо себя, либо то, на что себя заменили
+    // Основная функция. Принимает на вход DOMElement. Возвращает либо себя, либо то, на что себя заменили.
+    // Если удалили, возвращает null. Если заменили весь документ и пора заканчивать всю обработку, возвращает false.
     function processElement($el) {
         global $SXMLParams, $_SXML, $_SXML_VARS;
         $queries = array('select', 'insert', 'delete', 'edit', 'permit-view', 'permit-edit', 'query');
@@ -444,8 +442,12 @@
             if ($el->namespaceURI == $SXMLParams['ns']) {
                 switch ($el->localName) {
                     case 'action':
-                        while ($el->childNodes->length > 0) {
-                            $el->removeChild($el->firstChild);
+                        if ($el->getAttribute('name') === $_SXML['action']) {
+                            return executeAction($el);
+                        } else {
+                            while ($el->childNodes->length > 0) {
+                                $el->removeChild($el->firstChild);
+                            }
                         }
                     break;
                     case 'include':
@@ -505,7 +507,9 @@
                 }
             } else {
                 for ($i = 0; $i < $children->length; $i++) {
-                    processElement($children->item($i));  // FIXME: если при процессинге элемент убьют, что произойдёт? 
+                    if (processElement($children->item($i)) === false) {
+                        break;
+                    }  // FIXME: если при процессинге элемент убьют, что произойдёт? 
                 }
             }
         }
