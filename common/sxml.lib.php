@@ -345,7 +345,7 @@
     // Заполняет переменную, задекларированную в элементе
     function fillVar($var) {
         global $_SXML, $_SXML_VARS, $_SXML_POST, $_SXML_GET;
-
+        
         if ($var->hasAttribute('name') && $var->hasAttribute('from') && $var->hasAttribute('value')) {
             $name = $var->getAttribute('name');
             $from = $var->getAttribute('from');
@@ -354,9 +354,9 @@
                 if ($from == 'get') {
                     $_SXML_VARS[$name] = $_SXML_GET[$value];
                 } elseif ($from == 'post') {
-                    $_SXML_VARS['vars'][$name] = $_SXML_POST[$value];
+                    $_SXML_VARS[$name] = $_SXML_POST[$value];
                 } elseif ($from == 'sxml') {
-                    $_SXML_VARS['vars'][$name] = $_SXML[$value];
+                    $_SXML_VARS[$name] = $_SXML[$value];
                 }
                 // TODO выражения - арифметика, конкатенация, if...
             }
