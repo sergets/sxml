@@ -363,45 +363,52 @@
         }
     }
     
-    function executeAction($action, $doc) {
-        global $_SXML, $_SXML_POST;
+    // Выполняет в документе действие: ищёт <sxml:action> с соответствующим именем, прогоняет все элементы. Если элемент первого уровня вышел с ошибкой, то вся завершается с ошибкой,
+    // Иначе с результатом всех ok первого уровня. Здесь хинт: можно игнорировать ошибки того или иного запроса, просто спрятав его под неисчезающий тег (т. е. не под sxml:if)
+    function executeAction($action, $doc, $laconic = true) {
+        global $_SXML, $SXMLParams;
+        //$possibleCommands = array('query', 'select', 'insert', 'edit', 'permit-view', 'permit-edit', 'open');
     
-        if (($actions = evaluateXPath($doc, '//sxml:action[@name=\''.addslashes($_SXML_POST['sxml:action']).'\']', true)) && ($actions->length > 0)) {
-            $laconic = !isset($_SXML_POST['sxml:verbose']);
-            if ($_SXML_POST['sxml:token'] !== $_SXML['token']) {
-                $actionResult = createError($doc, 5);
-            } else {
-                $currentAction = $actions->item(0);
-                $commands = evaluateXPath($currentAction, '(.//sxml:query)|(.//sxml:select)|(.//sxml:insert)|(.//sxml:delete)|(.//sxml:edit)|(.//sxml:permit-view)|(.//sxml:permit-edit)');
-                getDB()->beginTransaction();
-                $_SXML['inTransaction'] = true;
-                $failed = false;
-                for ($i = 0; $i < $commands->length; $i++) {
-                    $currentCommand = $commands->item($i);
-                    if (!$failed) {
-                        $ok = processQuery($currentCommand);
-                        if ($ok->localName == 'error' && $ok->namespaceURI == $SXMLParams['ns']) {
+        if (($actions = evaluateXPath($doc, '//sxml:action[@name=\''.addslashes($action).'\']', true)) && ($actions->length > 0)) {
+            $currentAction = $actions->item(0);
+            //$commands = evaluateXPath($currentAction, '(.//sxml:'.join($possibleActions, ')|(.//sxml:').')');
+            getDB()->beginTransaction();
+            $_SXML['inTransaction'] = true;
+            $failed = false;
+            
+            $children = getAllChildElements($currentAction);
+            for ($i = 0; $i < $children->length; $i++) {
+                if (!$failed) {
+                    $item = $children->item($i);
+                    $stepResult = processElement($item);
+                    if ($stepResult !== null && $stepResult->nodeType == XML_ELEMENT_NODE) {    // Если мы видим какой-то тег в результате
+                        if ($stepResult->localName == 'error' && $stepResult->namespaceURI == $SXMLParams['ns']) {
+                            $actionResult = $item;
                             getDB()->rollBack();
                             $_SXML['inTransaction'] = false;
                             $failed = true;
                         }
-                    } else {
-                        $currentCommand->parentNode->removeChild($currentCommand); // Игнорируем все последующие команды
                     }
-                }
-                if (!$failed) {
-                    $_SXML['inTransaction'] = false;
-                    getDB()->commit();
-                }
-                $actionResult = $ok; // Последний error или ok - результат всего действия
-                $actionResult->setAttribute('action', $currentAction->getAttribute('name'));
-                if ($actionResult->localName !== 'error') {
-                    $afterInstructions = evaluateXPath($currentAction, '(.//sxml:update)|(.//sxml:delete)');
-                    for ($i = 0; $i < $afterInstructions->length; $i++) {
-                        $actionResult->appendChild($afterInstructions->item($i)->cloneNode(true));
-                    }
+                    //} else {
+                    // $currentAction->removeChild($item); // Если одна команда зафейлилась, остальные мы игнорируем
                 }
             }
+            
+            if (!$failed) {
+                $_SXML['inTransaction'] = false;
+                getDB()->commit();
+                
+                // Результат - элемент <sxml:ok> c атрибутом update собранным со всех дочерних <ok'ев>
+                $actionResult = createSXMLElem($doc, 'ok');
+                $updates = evaluateXPath($currentAction, '/sxml:ok/@update', true);
+                $updateString = '';
+                foreach($updates as $i => $updateAttr) {
+                    $updateString .= ' ' . $updateAttr->nodeValue;
+                }
+                $actionResult->setAttribute('update', $updateString);
+            }
+            $actionResult->setAttribute('action', $currentAction->getAttribute('name'));
+
             $replaced = $laconic? $doc->documentElement : $currentAction;
             $replaced->parentNode->replaceChild($actionResult, $replaced);
         }
@@ -409,7 +416,7 @@
     
     ////////////////
 
-    // Основная функция. Принимает на вход DOMElement
+    // Основная функция. Принимает на вход DOMElement. Возвращает либо себя, либо то, на что себя заменили
     function processElement($el) {
         global $SXMLParams, $_SXML, $_SXML_VARS;
         $queries = array('select', 'insert', 'delete', 'edit', 'permit-view', 'permit-edit', 'query');
@@ -425,18 +432,23 @@
                     case 'include':
                         $block = processInclude($el);
                         processElement($block);
+                        return $block;
                     break;
                     case 'var':
                         fillVar($el);
                         $el->parentNode->removeChild($el);
+                        return null;
                     break;
                     case 'value-of':
-                        $el->parentNode->replaceChild($el->ownerDocument->createTextNode($_SXML_VARS[$el->getAttribute('var')]), $el);
+                        $textNode = $el->ownerDocument->createTextNode($_SXML_VARS[$el->getAttribute('var')]);
+                        $el->parentNode->replaceChild($textNode, $el);
+                        return $textNode;
                     break;
                     default:
                         if (in_array($el->localName, $queries)) {
                             $block = processQuery($el);
                             processElement($block);
+                            return $block;
                         }
                 }
             }
@@ -473,11 +485,13 @@
                     }
                 }
             } else {
-                for ($i = 0; $i < $children->length; $i++) { // Не $children, так как там только элементы, а тут текстовые ноды тоже
-                    processElement($children->item($i));
+                for ($i = 0; $i < $children->length; $i++) {
+                    processElement($children->item($i));  // FIXME: если при процессинге элемент убьют, что произойдёт? 
                 }
             }
         }
+        
+        return $el;
     }
 
     // Создаёт элемент sxml:error

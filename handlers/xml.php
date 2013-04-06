@@ -14,7 +14,11 @@
 
     // Выполняем действия
     if (isset($_SXML_POST['sxml:action'])) {
-        executeAction($_SXML_POST['sxml:action'], $doc);
+        // Проверяем токен
+        if ($_SXML_POST['sxml:token'] !== $_SXML['token']) {
+            $doc->replaceChild(createError($doc, 5), $doc->documentElement);
+        }
+        executeAction($_SXML_POST['sxml:action'], $doc, !isset($_SXML_POST['sxml:verbose']));
     }
   
     // Обрабатываем документ

@@ -99,7 +99,7 @@
             }
             $data[$name] = $cols->item($i)->textContent;
         }
-        $r = getDB()->exec('create table if not exists "'.$table.'" ("sxml:item-id" integer primary key autoincrement, "'.join('", "', array_keys($data)).'", "sxml:editable-to", "sxml:visible-to", "sxml:time", "sxml:user")');
+        $r = getDB()->exec('create table if not exists "'.$table.'" ("sxml:item-id" integer primary key autoincrement, "'.join('", "', array_keys($data)).'", "sxml:editable-to", "sxml:visible-to", "sxml:open-to", "sxml:time", "sxml:user")');
         return processRawQuery('insert into "'.$table.'" ("'.join('", "', array_keys($data)).'", "sxml:time", "sxml:user") values(('.join('), (', $data).'), \''.date(DATE_ATOM).'\', :user)', $el->getAttribute('uses').' user');
     }
     
@@ -166,7 +166,7 @@
                 }
                 for ($i = 0; $i < $el->attributes->length; $i++) {
                     $child = $el->attributes->item($i);
-                    if (!in_array($child->localName, array('from', 'where', 'into', 'order-by', 'what', 'tag', 'entry', 'attrs', 'uses', 'store'))) {
+                    if (!in_array($child->localName, array('from', 'where', 'what', 'into', 'order-by', 'what', 'tag', 'entry', 'attrs', 'uses', 'store'))) {
                         $res->setAttributeNS($child->namespaceURI, $child->nodeName, $child->nodeValue);
                     }
                 }
