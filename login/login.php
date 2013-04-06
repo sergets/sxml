@@ -4,12 +4,14 @@
     
     session_start();
     
+    $user = $_GET['u'];
+    
     if (isset($_SESSION['sxml:user'])) {
         ?><<?='?'?>xml version="1.0"<?='?'?>>
             <sxml:error xmlns:sxml="<?=$SXMLParams['ns']?>">Already logged in</sxml:error>
         <?
-    } elseif (testLogin($_GET['u'])) { // TODO Нужна осмысленная проверка логина
-        doLogin($user);
+    } elseif (1) { // TODO Нужна осмысленная проверка логина
+        doLogin($user, array('user' => $user, 'name' => 'Test user "'.$user.'"') );
         ?><<?='?'?>xml version="1.0"<?='?'?>>
             <sxml:ok xmlns:sxml="<?=$SXMLParams['ns']?>" sxml:user="<?=addslashes($user)?>>"/>
         <?

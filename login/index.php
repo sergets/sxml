@@ -36,7 +36,7 @@
         $_SESSION['oauth:random_key'] = substr(md5(rand()), 0, 10);
     }
     $OAuthSetup = array(
-        'self' => 'http://sxml/sxmlight/login/oauth.php?sxml:oauthkey='.$_SESSION['oauth:random_key'],
+        'self' => 'http://'.$SXMLParams['host'].$SXMLParams['root'].$SXMLParams['folder'].'/login/?sxml:oauthkey='.$_SESSION['oauth:random_key'],
         'vk_id' => '3542713',
         'vk_secret' => 'pSdxVtb7COUga0sZEAQP'
     );
@@ -144,10 +144,14 @@
     
     // Результирующие действия
     
-    function success($provider, $username, $additionals) {
+    function success($provider = null, $username = null, $additionals = null) {
         global $SXMLParams;
         
-        doLogin($username, $additionals);
+        if (!$provider) {
+            doLogout();
+        } else {
+            doLogin($username, $additionals);
+        }
         header('HTTP/1.1 200 OK');
         header('Content-type: application/xml');
         ?><<?='?'?>xml version="1.0"<?='?'?>><?
@@ -200,6 +204,11 @@
     /////
     
     // Основной код
+    
+    if (isset($_REQUEST['sxml:logout'])) {
+        success();
+        exit(0);
+    }
     
     $provider = $_REQUEST['sxml:provider'];
     if (!$provider) {

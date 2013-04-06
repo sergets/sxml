@@ -3,7 +3,7 @@
     
     // Инициализиация
     getDB()->query('create table if not exists "sxml:users" ("user" unique, "name", "link", "userpic", "sex")');
-    getDB()->query('create table if not exists "sxml:usersgroups" ("user", "group")');
+    getDB()->query('create table if not exists "sxml:membership" ("user", "group")');
     getDB()->query('create table if not exists "sxml:groups" ("group", "name")');
     // //
     
@@ -19,6 +19,7 @@
     }
     
     function doLogout() {
+        global $SXMLParams;
     
         unset($_SESSION['sxml:user']);
         setcookie('userid_current', '', time() - 3600, $SXMLParams['root']);
@@ -28,13 +29,16 @@
 
     function getGroupsForUser($user) {
 
-        /*$query = getDB()->prepare('select "sxml:groups".* from ("sxml:usersgroups" inner join "sxml:groups" on "sxml:usersgroups"."group" = "sxml:groups"."group") where ("sxml:usersgroups"."user" = :user)');
-        if ($query->execute(array( 'user' => $userid ))) {
-            return $query->fetchAll();
-        } else {
-            return array();
-        }*/
-        
+        $res = array(
+            ''
+        );
+        $query = getDB()->prepare('select "group" from "sxml:membership" where ("user" = :user)');
+        if ($query->execute(array( 'user' => $user ))) {
+            foreach ($query->fetchAll() as $i => $row) {
+                $res[] = $row['group'];
+            }
+        }
+        return $res;
 
     }
 
