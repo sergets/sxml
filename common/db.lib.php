@@ -35,6 +35,11 @@
             $trans = false;
         }
         
+        if ($el->hasAttribute('what')) {
+            $what = $el->getAttribute('what');
+        } else {
+            $what = '*';
+        }
         $paramStringBeforeWhere = ' from ('.$el->getAttribute('from').') where ( 1 = 1 ';
         $paramStringAfterWhere = ')';
         if ($el->hasAttribute('where')) {
@@ -44,22 +49,27 @@
             $paramStringAfterWhere .= ' order by ('.$el->getAttribute('order-by').')';
         }
         
-        $restricted = $db->query('select * '.$paramStringBeforeWhere.' and ("sxml:visible-to" not null) '.$paramStringAfterWhere)->rowCount();
-        if ($restricted > 0 || ($ranges[0] === false && $ranges[1] === false && $ranges[2] === false && $ranges[3] === false)) {
-            $res = processRawQuery('select * '.$paramStringBeforeWhere.$paramStringAfterWhere, $el->getAttribute('uses'));
+        $restricted = $db->query('select '.$what.$paramStringBeforeWhere.' and ("sxml:visible-to" not null) '.$paramStringAfterWhere);
+        if (!$restricted) {
+            $restricted = 0;
         } else {
-            $total = $db->query('select count(*) '.$paramStringBeforeWhere.$paramStringAfterWhere)->fetchAll();
+            $restricted = $restricted->rowCount();
+        }
+        if ($restricted > 0 || ($ranges[0] === false && $ranges[1] === false && $ranges[2] === false && $ranges[3] === false)) {
+            $res = processRawQuery('select '.$what.$paramStringBeforeWhere.$paramStringAfterWhere, $el->getAttribute('uses'));
+        } else {
+            $total = $db->query('select count('.$what.') '.$paramStringBeforeWhere.$paramStringAfterWhere)->fetchAll();
             $total = current($total[0]);
             if ($ranges[0] !== false) {
                 if ($ranges[1] === false) { // 2-
-                    $res = processRawQuery('select * '.$paramStringBeforeWhere.$paramStringAfterWhere.' limit -1 offset '.$ranges[0], $el->getAttribute('uses'));
+                    $res = processRawQuery('select '.$what.$paramStringBeforeWhere.$paramStringAfterWhere.' limit -1 offset '.$ranges[0], $el->getAttribute('uses'));
                     $range = $ranges[0].'-';
                 } else { // 1-10
-                    $res = processRawQuery('select * '.$paramStringBeforeWhere.$paramStringAfterWhere.' limit '.($ranges[1] - $ranges[0] + 1).' offset '.$ranges[0], $el->getAttribute('uses'));
+                    $res = processRawQuery('select '.$what.$paramStringBeforeWhere.$paramStringAfterWhere.' limit '.($ranges[1] - $ranges[0] + 1).' offset '.$ranges[0], $el->getAttribute('uses'));
                     $range = $ranges[0].'-'.$ranges[1];
                 }
             } else { // 7-4
-                $res = processRawQuery('select * '.$paramStringBeforeWhere.$paramStringAfterWhere.' limit '.($ranges[2] - $ranges[3] + 1).' offset '.($total - $ranges[2]), $el->getAttribute('uses'));
+                $res = processRawQuery('select '.$what.$paramStringBeforeWhere.$paramStringAfterWhere.' limit '.($ranges[2] - $ranges[3] + 1).' offset '.($total - $ranges[2]), $el->getAttribute('uses'));
                 $range = $ranges[2].'-'.$ranges[3];
             }
         }
@@ -102,7 +112,7 @@
     
     // Обрабатывает сырую транзакцию, возвращает массив результатов, либо true, либо строку с ошибкой
     function processRawQuery($q, $uses = null) {
-        global $_SXML;
+        global $_SXML_VARS;
 
         $query = getDB()->prepare($q);
         $vars = explode(' ', $uses);
@@ -110,7 +120,7 @@
             $err = getDB()->errorInfo();
             return 'DB error: '.$err[2];
         }
-        foreach($_SXML['vars'] as $name => $value) {
+        foreach($_SXML_VARS as $name => $value) {
             if (in_array($name, $vars)) {
                 $query->bindValue(':'.$name, $value);
             }
@@ -130,11 +140,13 @@
     
     // Формирует результирующий элемент
     function buildResult($el, $result, $range = false) {
+        global $_SXML_VARS;
+    
         $doc = $el->ownerDocument;
         if (is_array($result) || $result === true && ($el->localName == 'select' || $el->hasAttribute('nook'))) { 
             // Если это запрос не на действие, то в любом случае показываем нужный тег 
             if ($el->hasAttribute('store')) {
-                $_SXML['vars'][$el->getAttribute('store')] = current($result[0]);
+                $_SXML_VARS[$el->getAttribute('store')] = current($result[0]);
             } else {
                 if (!$el->hasAttribute('tag')) {
                     $tag = 'list';

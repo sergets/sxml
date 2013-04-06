@@ -22,6 +22,7 @@
     $_SXML_GET = array();
     $_SXML_POST = array();
     $_SXML_REQUEST = array();
+    $_SXML_VARS = array();
 
     // Разбираем строку запроса на $_SXML['file'], $_SXML['query'] и $_SXML_GET;
     if (false !== ($p = strpos($_SERVER['REQUEST_URI'], '?'))) {

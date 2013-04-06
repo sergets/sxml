@@ -342,28 +342,23 @@
     
     /////////////
     
-    // Собирает sxml:vars
-    
-    function fillVars($doc) {
-        global $_SXML, $_SXML_GET, $_SXML_POST;
-        
-        $_SXML['vars'] = array(
-            'user' => $_SXML['user']
-        );
-        $vartags = evaluateXPath($doc, '//sxml:var');
-        for ($i = 0; $i < $vartags->length; $i++) {
-            $var = $vartags->item($i);
-            if ($var->hasAttribute('name') && $var->hasAttribute('from') && $var->hasAttribute('value')) {
-                $name = $var->getAttribute('name');
-                $from = $var->getAttribute('from');
-                $value = $var->getAttribute('value');
+    // Заполняет переменную, задекларированную в элементе
+    function fillVar($var) {
+        global $_SXML, $_SXML_VARS, $_SXML_POST, $_SXML_GET;
+
+        if ($var->hasAttribute('name') && $var->hasAttribute('from') && $var->hasAttribute('value')) {
+            $name = $var->getAttribute('name');
+            $from = $var->getAttribute('from');
+            $value = $var->getAttribute('value');
+            if (!$var->hasAttribute('preserve-old') || !isset($_SXML_VARS['name'])) {
                 if ($from == 'get') {
-                    $_SXML['vars'][$name] = $_SXML_GET[$value];
+                    $_SXML_VARS[$name] = $_SXML_GET[$value];
                 } elseif ($from == 'post') {
-                    $_SXML['vars'][$name] = $_SXML_POST[$value];
+                    $_SXML_VARS['vars'][$name] = $_SXML_POST[$value];
                 } elseif ($from == 'sxml') {
-                    $_SXML['vars'][$name] = $_SXML[$value];
+                    $_SXML_VARS['vars'][$name] = $_SXML[$value];
                 }
+                // TODO выражения - арифметика, конкатенация, if...
             }
         }
     }
@@ -416,23 +411,33 @@
 
     // Основная функция. Принимает на вход DOMElement
     function processElement($el) {
-        global $SXMLParams, $_SXML;
+        global $SXMLParams, $_SXML, $_SXML_VARS;
         $queries = array('select', 'insert', 'delete', 'edit', 'permit-view', 'permit-edit', 'query');
     
         if ($el->nodeType == XML_ELEMENT_NODE) {
             if ($el->namespaceURI == $SXMLParams['ns']) {
-                if ($el->localName == 'action') { // Оставляем только сигнатуры действий, содержимое убираем
-                    while ($el->childNodes->length > 0) {
-                        $el->removeChild($el->firstChild);
-                    }
-                }
-                if (in_array($el->localName, $queries)) {
-                    $block = processQuery($el);
-                    processElement($block);
-                }
-                if ($el->localName == 'include') {
-                    $block = processInclude($el);
-                    processElement($block);
+                switch ($el->localName) {
+                    case 'action':
+                        while ($el->childNodes->length > 0) {
+                            $el->removeChild($el->firstChild);
+                        }
+                    break;
+                    case 'include':
+                        $block = processInclude($el);
+                        processElement($block);
+                    break;
+                    case 'var':
+                        fillVar($el);
+                        $el->parentNode->removeChild($el);
+                    break;
+                    case 'value-of':
+                        $el->parentNode->replaceChild($el->ownerDocument->createTextNode($_SXML_VARS[$el->getAttribute('var')]), $el);
+                    break;
+                    default:
+                        if (in_array($el->localName, $queries)) {
+                            $block = processQuery($el);
+                            processElement($block);
+                        }
                 }
             }
             $hidden = getEvanescentChildren($el);
@@ -526,8 +531,7 @@
         if ($groups) {
             foreach ($groups as $i => $group) {
                 $elem = createSXMLElem($doc, 'group');
-                $elem->setAttribute('id', $hash['group']);
-                $elem->setAttribute('name', $hash['name']);
+                $elem->setAttribute('id', $group);
                 $mainNode->appendChild($elem);
             }
         }
