@@ -110,6 +110,20 @@
         return null;
     }
     
+    // Вытаскивает из базы первое поле заданного имени по заданным from, where и uses. Всегда возвращает строку
+    function simpleSelect($name, $from, $where = null, $uses = null) {
+        $query = 'select "'.$name.'" from '.$from;
+        if ($where !== null) {
+            $query .= ' where '.$where;
+        }
+        $results = processRawQuery($query, $uses);
+        if (is_array($resuls) && (count($results) > 0) && isset($results[0][$name])) {
+            return $results[0][$name];
+        } else {
+            return '';
+        }
+    }
+    
     // Обрабатывает сырую транзакцию, возвращает массив результатов, либо true, либо строку с ошибкой
     function processRawQuery($q, $uses = null) {
         global $_SXML_VARS;

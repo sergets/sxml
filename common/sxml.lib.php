@@ -179,8 +179,17 @@
         if (!hasSXMLAttr($el, 'visible-to')) {
             return true;
         } else {
-            return isPermitted(explode(' ', getSXMLAttr($el, 'visible-to')));
+            return stringPermits(getSXMLAttr($el, 'visible-to'));
         }
+    }
+    
+    function stringPermits($str) {
+        if (rtrim($str) === '') {
+            return true;
+        } else {
+            return isPermitted(explode(' ', $str));
+        }
+
     }
 
     // Возвращает список детей, у которых в принципе есть настройки приватности
@@ -366,52 +375,62 @@
     // Выполняет в документе действие: ищёт <sxml:action> с соответствующим именем, прогоняет все элементы. Если элемент первого уровня вышел с ошибкой, то вся завершается с ошибкой,
     // Иначе с результатом всех ok первого уровня. Здесь хинт: можно игнорировать ошибки того или иного запроса, просто спрятав его под неисчезающий тег (т. е. не под sxml:if)
     function executeAction($action, $doc, $laconic = true) {
-        global $_SXML, $SXMLParams;
-        //$possibleCommands = array('query', 'select', 'insert', 'edit', 'permit-view', 'permit-edit', 'open');
+        global $_SXML, $SXMLParams, $_SXML_VARS;
     
-        if (($actions = evaluateXPath($doc, '//sxml:action[@name=\''.addslashes($action).'\']', true)) && ($actions->length > 0)) {
-            $currentAction = $actions->item(0);
-            //$commands = evaluateXPath($currentAction, '(.//sxml:'.join($possibleActions, ')|(.//sxml:').')');
-            getDB()->beginTransaction();
-            $_SXML['inTransaction'] = true;
-            $failed = false;
+        if (!($actions = evaluateXPath($doc, '//sxml:action[@name=\''.addslashes($action).'\']', true)) || ($actions->length < 1)) {
+            $actionResult = createError($doc, 7); // Нет такого действия в документе
+        } else {
+            $currentAction = $actions->item(0); // Выполняем только первое дейсвие
             
-            $children = getAllChildElements($currentAction);
-            for ($i = 0; $i < $children->length; $i++) {
-                if (!$failed) {
-                    $item = $children->item($i);
-                    $stepResult = processElement($item);
-                    if ($stepResult !== null && $stepResult->nodeType == XML_ELEMENT_NODE) {    // Если мы видим какой-то тег в результате
-                        if ($stepResult->localName == 'error' && $stepResult->namespaceURI == $SXMLParams['ns']) {
-                            $actionResult = $item;
-                            getDB()->rollBack();
-                            $_SXML['inTransaction'] = false;
-                            $failed = true;
+            if (!isInheritedlyVisible($currentAction)) {
+                $actionResult = createError($doc, 6); // Или лучше даже 7, чтобы никто не догадался о невидимом действии 
+            } elseif ($currentAction->hasAttribute('open-to') && !stringPermits($currentAction->getAttribute('open-to'))) {
+                $actionResult = createError($doc, 6); // Явно запрещено прямо в файле
+            } elseif ($currentAction->hasAttribute('open-as') && !stringPermits($_SXML_VARS[$currentAction->getAttribute('open-as')])) {
+                $actionResult = createError($doc, 6); // Запрещено согласно значению переменной
+            } elseif ($currentAction->hasAttribute('open-as-from') && !stringPermits(simpleSelect('sxml:open-to', $currentAction->getAttribute('open-as-from'), $currentAction->hasAttribute('open-as-where') ? $currentAction->getAttribute('open-as-where') : null, $currentAction->hasAttribute('open-as-uses') ? $currentAction->getAttribute('open-as-uses') : null))) {
+                $actionResult = createError($doc, 6); // Запрещено по результатам запроса из базы
+            } else {
+            
+                getDB()->beginTransaction();
+                $_SXML['inTransaction'] = true;
+                $failed = false;
+                
+                $children = getAllChildElements($currentAction);
+                for ($i = 0; $i < $children->length; $i++) {
+                    if (!$failed) {
+                        $item = $children->item($i);
+                        $stepResult = processElement($item);
+                        if ($stepResult !== null && $stepResult->nodeType == XML_ELEMENT_NODE) {    // Если мы видим какой-то тег в результате
+                            if ($stepResult->localName == 'error' && $stepResult->namespaceURI == $SXMLParams['ns']) {
+                                $actionResult = $item;
+                                getDB()->rollBack();
+                                $_SXML['inTransaction'] = false;
+                                $failed = true;
+                            }
                         }
                     }
-                    //} else {
-                    // $currentAction->removeChild($item); // Если одна команда зафейлилась, остальные мы игнорируем
                 }
-            }
-            
-            if (!$failed) {
-                $_SXML['inTransaction'] = false;
-                getDB()->commit();
                 
-                // Результат - элемент <sxml:ok> c атрибутом update собранным со всех дочерних <ok'ев>
-                $actionResult = createSXMLElem($doc, 'ok');
-                $updates = evaluateXPath($currentAction, '/sxml:ok/@update', true);
-                $updateString = '';
-                foreach($updates as $i => $updateAttr) {
-                    $updateString .= ' ' . $updateAttr->nodeValue;
+                if (!$failed) {
+                    $_SXML['inTransaction'] = false;
+                    getDB()->commit();
+                    
+                    // Результат - элемент <sxml:ok> c атрибутом update собранным со всех дочерних <ok'ев>
+                    $actionResult = createSXMLElem($doc, 'ok');
+                    $updates = evaluateXPath($currentAction, '/sxml:ok/@update', true);
+                    $updateString = '';
+                    foreach($updates as $i => $updateAttr) {
+                        $updateString .= ' ' . $updateAttr->nodeValue;
+                    }
+                    $actionResult->setAttribute('update', $updateString);
                 }
-                $actionResult->setAttribute('update', $updateString);
             }
-            $actionResult->setAttribute('action', $currentAction->getAttribute('name'));
-
-            $replaced = $laconic? $doc->documentElement : $currentAction;
-            $replaced->parentNode->replaceChild($actionResult, $replaced);
         }
+        $actionResult->setAttribute('action', $currentAction->getAttribute('name'));
+
+        $replaced = $laconic? $doc->documentElement : $currentAction;
+        $replaced->parentNode->replaceChild($actionResult, $replaced);
     }
     
     ////////////////
@@ -503,7 +522,8 @@
             3 => 'Неожиданная ошибка базы данных',
             4 => 'Неправильный запрос к базе данных',
             5 => 'Неправильный токен',
-            6 => 'Недостаточно прав'
+            6 => 'Недостаточно прав',
+            7 => 'Неверное действие'
         );
         $error = $doc->createElementNS($SXMLParams['ns'], 'error');
         if (!$text) {
