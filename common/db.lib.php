@@ -21,6 +21,62 @@
         $SXML_DBHandler = null;
     }
     
+    // Вытаскивает из базы первое поле заданного имени по заданным from, where и uses. Всегда возвращает строку
+    function simpleSelect($name, $from, $where = null, $uses = null) {
+        $query = 'select "'.$name.'" from '.$from;
+        if ($where !== null) {
+            $query .= ' where '.$where;
+        }
+        $results = processRawQuery($query, $uses);
+        if (is_array($resuls) && (count($results) > 0) && isset($results[0][$name])) {
+            return $results[0][$name];
+        } else {
+            return '';
+        }
+    }
+    
+    ///////
+    // Составыне части для функций-обработчиков
+    
+    // Возвращает в виде массива данные, переданные в insert или edit
+    function getContainedData($el) {
+        global $SXMLParams;
+    
+        $cols = evaluateXPath($el, './*', true);
+        $data = array();
+        for ($i = 0; $i < $cols->length; $i++) {
+            if ($cols->item($i)->tagName == 'col') {
+                $name = $cols->item($i)->getAttribute('name');
+            } elseif ($cols->item($i)->namespaceURI == $SXMLParams['ns']) {
+                $name = 'sxml/' . $cols->item($i)->tagName;
+            } else {
+                $name = $cols->item($i)->tagName;
+            }
+            $data[$name] = $cols->item($i)->textContent;
+        }
+        return $data;
+    }
+    
+    // Проверяет автора заданной строчки таблицы 
+    function isChangeAllowed($el) {
+        $table = $el->hasAttribute('from') ? $el->getAttribute('from') : $el->getAttribute('in');
+        $allowed =  $el->hasAttribute('also-open-to') ? $el->getAttribute('also-open-to') : '';
+        $item = $el->getAttribute('id');
+        $uses = $el->hasAttribute('uses') ? $el->getAttribute('uses') : '';
+        
+        $owner = simpleSelect('sxml:user', $table, '"sxml:item-id" = '.$item, $uses); // Это безопасно, $item не от пользователя пришёл, а от программиста
+        if ($owner) $allowed .= ' ' . $owner;
+        
+        if (stringPermits($allowed)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    
+    ////////
+    // Функции-обработчики стандартных действий. Принимают элемент (<sxml:.../>), возвращают массив результатов, true или строку с ошибкой
+    
     // Обрабатывает инструкцию <sxml:select/> - допиленный под наши нужды (имена пользователей, даты, права, страницы) SELECT.
     // <sxml:select from="" where="unescaped sql" [плюс всякие документные штуки типа enumerable, range и т. п.]/>
     function processSelect($el, &$range = null, &$total = null) {
@@ -41,7 +97,7 @@
             $what = '*';
         }
         $paramStringBeforeWhere = ' from ('.$el->getAttribute('from').') where ( 1 = 1 ';
-        $paramStringAfterWhere = ')';
+        $paramStringAfterWhere = ' and "sxml:deleted" <> \'deleted\')';
         if ($el->hasAttribute('where')) {
             $paramStringBeforeWhere .= ' and ('.$el->getAttribute('where').')';
         }
@@ -87,41 +143,46 @@
         global $SXMLParams, $_SXML;
         
         $table = $el->getAttribute('into');
-        $cols = evaluateXPath($el, './*', true);
-        $data = array();
-        for ($i = 0; $i < $cols->length; $i++) {
-            if ($cols->item($i)->tagName == 'col') {
-                $name = $cols->item($i)->getAttribute('name');
-            } elseif ($cols->item($i)->namespaceURI == $SXMLParams['ns']) {
-                $name = 'sxml/' . $cols->item($i)->tagName;
-            } else {
-                $name = $cols->item($i)->tagName;
-            }
-            $data[$name] = $cols->item($i)->textContent;
-        }
+        $data = getContainedData($el);
         $r = getDB()->exec('create table if not exists "'.$table.'" ("sxml:item-id" integer primary key autoincrement, "'.join('", "', array_keys($data)).'", "sxml:editable-to", "sxml:visible-to", "sxml:open-to", "sxml:time", "sxml:user")');
         return processRawQuery('insert into "'.$table.'" ("'.join('", "', array_keys($data)).'", "sxml:time", "sxml:user") values(('.join('), (', $data).'), \''.date(DATE_ATOM).'\', :user)', $el->getAttribute('uses').' user');
     }
     
     // Обрабатывает инструкцию <sxml:delete/> - допиленный DELETE
-    // <sxml:delete from="" id=""/>
+    // <sxml:delete from="" id="" also-open-to="" uses=""/>
+    // also-open-to - кому можно, кроме автора. Проставляет 'deleted' в поле deleted - чтобы при обновлении можно было заметить, что что-то удалилось
     function processDelete($el) {
-        $db = getDB();
-        return null;
+    
+        if (!$el->hasAttribute('from') || !$el->hasAttribute('id')) {
+            return 'Неправильный delete';
+        }        
+        if (!isChangeAllowed($el)) {
+            return 'Нельзя удалять чужое :)';
+        } else {
+            return processRawQuery('update '.$table.' set "sxml:deleted" = \'deleted\', "sxml:time" = \''.date(DATE_ATOM).'\' where ("sxml:item-id" = '.$item.')', $uses);
+        }
+
     }
     
-    // Вытаскивает из базы первое поле заданного имени по заданным from, where и uses. Всегда возвращает строку
-    function simpleSelect($name, $from, $where = null, $uses = null) {
-        $query = 'select "'.$name.'" from '.$from;
-        if ($where !== null) {
-            $query .= ' where '.$where;
-        }
-        $results = processRawQuery($query, $uses);
-        if (is_array($resuls) && (count($results) > 0) && isset($results[0][$name])) {
-            return $results[0][$name];
+    // Обрабатывает инструкцию <sxml:edit/> - допиленный UPDATE
+    // <sxml:edit in="" id="" also-open-to="" uses="">data</sxml:edit>
+    // also-open-to - кому можно, кроме автора. Проставляет 'deleted' в поле deleted - чтобы при обновлении можно было заметить, что что-то удалилось
+    function processEdit($el) {
+    
+        if (!$el->hasAttribute('from') || !$el->hasAttribute('id')) {
+            return 'Неправильный delete';
+        }        
+        if (!isChangeAllowed($el)) {
+            return 'Нельзя редактировать чужое :)';
         } else {
-            return '';
+            $data = getContainedData($el);
+            $updateString = '';
+            foreach ($data as $field => $content) {
+                $data[$field] = '"'.$field.'" = ('.$content.')';
+            }
+            return processRawQuery('update '.$table.' set '.join(', ', $data).', "sxml:time" = \''.date(DATE_ATOM).'\' where ("sxml:item-id" = '.$item.')', $uses);
         }
+
     }
     
     // Обрабатывает сырую транзакцию, возвращает массив результатов, либо true, либо строку с ошибкой
@@ -180,7 +241,7 @@
                 }
                 for ($i = 0; $i < $el->attributes->length; $i++) {
                     $child = $el->attributes->item($i);
-                    if (!in_array($child->localName, array('from', 'where', 'what', 'into', 'order-by', 'what', 'tag', 'entry', 'attrs', 'uses', 'store'))) {
+                    if (!in_array($child->localName, array('from', 'where', 'what', 'into', 'order-by', 'what', 'tag', 'entry', 'attrs', 'uses', 'store', 'also-open-to'))) {
                         $res->setAttributeNS($child->namespaceURI, $child->nodeName, $child->nodeValue);
                     }
                 }
