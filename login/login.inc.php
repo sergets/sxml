@@ -18,6 +18,8 @@
     if (isset($_SESSION['sxml:user'])) {
         $_SXML['user'] = $_SESSION['sxml:user'];
         $_SXML['groups'] = getGroupsForUser($_SXML['user']);
+    } elseif (isset($_COOKIE['sxml:remembered_provider'])) {
+        $_SXML['remembered'] = $_COOKIE['sxml:remembered_provider'];
     }
 
 ?>

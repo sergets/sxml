@@ -129,6 +129,7 @@
                     default: $sex = 'x'; break;
                 }
                 return array(
+                    'provider' => 'vk',
                     'user' => 'vk:'.$results['uid'],
                     'name' => $results['first_name'] .' '. $results['last_name'],
                     'sex' => $sex,
@@ -155,7 +156,20 @@
         header('HTTP/1.1 200 OK');
         header('Content-type: application/xml');
         ?><<?='?'?>xml version="1.0"<?='?'?>><?
-        ?><sxml:ok action="login" xmlns:sxml="<?=($SXMLParams['ns'])?>"><sxml:update login-dependent="yes"/></sxml:ok><?
+        ?><sxml:ok action="login" xmlns:sxml="<?=($SXMLParams['ns'])?>" sxml:user="<?=$username?>">
+            <sxml:data>
+                <sxml:found-users>
+                    <sxml:user id="<?=$username?>" name="<?=$additionals['name']?>" link="<?=$additionals['link']?>"/>
+                </sxml:found-users>
+                <sxml:my-groups>
+                    <?
+                        foreach (getGroupsForUser($username) as $i => $group) {
+                            ?><sxml:group id="<?=$group?>"/><?
+                        }
+                    ?>
+                </sxml:my-groups>
+            </sxml:data>
+        </sxml:ok><?
     }
     
     function error($message) {

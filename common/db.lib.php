@@ -249,10 +249,14 @@
                 if (is_array($result)) {  // Иначе в ответе ничего 
                     foreach ($result as $i => $row) {
                         $entry = $el->getAttribute('entry');
+                        $entryClass = $el->getAttribute('entry-class');
                         if (substr($entry, 0, 5) === 'sxml:') {
                             $rowElem = createSXMLElem($doc, $SXMLParams['ns'], substr($entry, 5)); 
                         } else {
                             $rowElem = $doc->createElement($entry); 
+                        }
+                        if ($entryClass) {
+                            setSXMLAttr($rowElem, 'class', $entryClass);
                         }
                         foreach ($row as $name => $value) {
                             if ($value != null) {

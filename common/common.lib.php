@@ -4,6 +4,37 @@
     ///////////
     
     require_once 'setup.php';
+    
+    // Разбирает $path на три части: path - путь до знака вопроса, массив get-параметров и sxml-локатор (т. е. последний get-параметр без знака равенства). 
+    function splitGetString($path) {
+        $result = array(
+            'path' => false,
+            'get' => array(),
+            'sxml' => false
+        );
+        if (false !== ($p = strpos($path, '?'))) {
+            $result['path'] = substr($path, 0, $p);
+            $querystring = substr($path, $p + 1);
+            $gets = explode('&', $querystring);
+            if (strpos($gets[count($gets)-1], '=') === false) {
+                $result['sxml'] = $gets[count($gets)-1];
+                array_pop($gets);
+            } else {
+                $result['sxml'] = '';
+            }
+            foreach($gets as $i => $get) {
+                if (false !== ($p = strpos($get, '='))) { // Не explode, потому что может быть больше одного знака равенства, а значим только первый.
+                    $result['get'][urldecode(substr($get, 0, $p))] = urldecode(substr($get, $p + 1));
+                } else {
+                    $result['get'][urldecode(substr($get))] = '';
+                }
+            }
+        } else {
+            $result['path'] = $path;
+        }
+        return $result;
+    }
+ 
 
     // Определяет, является ли $path относительным адресом и в любом случае преобразует его к локальному пути. Если путь не преобразуется к локальному,
     // то возвращает false
@@ -53,7 +84,7 @@
     function local2global($path) {
         global $SXMLParams;
         
-        return str_replace(str_replace('\\', '/', $SXMLParams['localroot']).'/', $SXMLParams['host'].$SXMLParams['root'], $path);
+        return 'http://'.str_replace(str_replace('\\', '/', $SXMLParams['localroot']), $SXMLParams['host'].$SXMLParams['root'], $path);
     }
     
     //////

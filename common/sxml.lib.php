@@ -72,12 +72,13 @@
     function findBlock($doc, $hash = array()) {
         if (isset($hash['id'])) {
             // TODO: эскейпить параметры!
+            // TODO: если блока нет на старте, найти его после процессинга всех запросов
             $blocks = evaluateXPath($doc, '//*[@sxml:id=\''.$hash['id'].'\']');
             if ($blocks->length > 0) {
                 $block = $blocks->item(0);
             }
         } elseif (isset($hash['class']) && isset($hash['inst'])) {
-            $blocks = evaluateXPath($doc, '//*[@sxml:class=\''.$hash['class'].'\' and @sxml:inst=\''.$hash['inst'].'\']');
+            $blocks = evaluateXPath($doc, '//*[@sxml:class=\''.$hash['class'].'\' and @sxml:item-id=\''.$hash['inst'].'\']');
             if ($blocks->length > 0) {
                 $block = $blocks->item(0);
             }
@@ -92,6 +93,7 @@
     function fetch($from, $hash = array()) {
         global $SXMLParams;
         // Здесь нужно дописать парсеры урлов, в частности *.xml.php.
+        // TODO: get-параметры
         $doc = new DOMDocument();
         if (!$from) {
             return null;
@@ -119,7 +121,7 @@
         //       select * from {from} where {where} limit {first},{last-first}   
         //
         if (isInheritedlyVisible($block)) {
-            setSXMLAttr($block, 'source', local2global($from));
+            //setSXMLAttr($block, 'source', local2global($from));
             if (hasSXMLAttr($block, 'enumerable')) {
                 setSXMLAttr($block, 'range', $hash['range']); // Говорим processElement'у, что из этого блока надо будет выбрать 
             }
@@ -334,7 +336,10 @@
 
     // Обрабатывает инклуд (получает элемент, вычисляет требуемые параметры, фетчит и возвращает блок
     function processInclude($el) {
-        $hash = array();
+        global $_SXML_GET;
+    
+        $pathParts = splitGetString($el->getAttribute('from'));
+        $hash = parseHash($pathParts['sxml']);
         if ($el->hasAttribute('id')) {
             $hash['id'] = $el->getAttribute('id');
         } elseif ($el->hasAttribute('class') && $el->hasAttribute('inst')) {
@@ -343,10 +348,18 @@
         if ($el->hasAttribute('range')) {
             $hash['range'] = $el->getAttribute('range');
         }
-        $block = fetch(resolvePath($el->getAttribute('from'), $el->baseURI), $hash);
-        $localBlock = $el->ownerDocument->importNode($block);
+
+        // Подставляем GET-параметры из запроса вместо настоящих
+        $rememberGet = $_SXML_GET;
+        $_SXML_GET = $pathParts['get'];
+        $block = fetch(resolvePath($pathParts['path'], $el->baseURI), $hash);
+        addSourceAttr($block);
+        $localBlock = $el->ownerDocument->importNode($block, true);
         $el->parentNode->replaceChild($localBlock, $el);
+        processElement($localBlock);
+        $_SXML_GET = $rememberGet;
         return $localBlock;
+        
     }
     
     /////////////
@@ -400,7 +413,7 @@
                     $stepResult = processElement($item);
                     if ($stepResult !== null && $stepResult->nodeType == XML_ELEMENT_NODE) {    // Если мы видим какой-то тег в результате
                         if ($stepResult->localName == 'error' && $stepResult->namespaceURI == $SXMLParams['ns']) {
-                            $actionResult = $item;
+                            $actionResult = $stepResult;
                             getDB()->rollBack();
                             $_SXML['inTransaction'] = false;
                             $failed = true;
@@ -414,6 +427,7 @@
                 getDB()->commit();
                 
                 // Результат - элемент <sxml:ok> c атрибутом update собранным со всех дочерних <ok'ев>
+                // TODO: всё-таки теги update — наше всё.
                 $actionResult = createSXMLElem($doc, 'ok');
                 $updates = evaluateXPath($currentAction, '/sxml:ok/@update', true);
                 $updateString = '';
@@ -452,7 +466,7 @@
                     break;
                     case 'include':
                         $block = processInclude($el);
-                        processElement($block);
+                        //processElement($block);
                         return $block;
                     break;
                     case 'var':
@@ -576,9 +590,15 @@
         return $mainNode;
     }
     
+    // Добавляет к ноде атрибут source с правильной GET-строкой
+    function addSourceAttr($el) {
+        global $_SXML_GET;
+        setSXMLAttr($el, 'source', local2global($el->baseURI).(count($_SXML_GET) > 0 ? '?'.http_build_query($_SXML_GET) : ''));
+    }
+    
     // Основная функция. Получает на вход DOMDocument
     function processDocument($doc, $hash = array()) {
-        global $_SXML;
+        global $_SXML, $_SXML_GET;
         $docblock = findBlock($doc, $hash);
         if ($docblock == null) {
             $doc->replaceChild(createError($doc, 1), $doc->documentElement);
@@ -587,9 +607,13 @@
         if (!$docblock->isSameNode($doc->documentElement)) {
             $doc->replaceChild($docblock, $doc->documentElement);
         }
-        setSXMLAttr($doc->documentElement, 'source', local2global($doc->documentElement->baseURI));
+        //setSXMLAttr($doc->documentElement, 'source', local2global($doc->documentElement->baseURI).'?'.http_build_query($_SXML_GET));
+        addSourceAttr($doc->documentElement);
         setSXMLAttr($doc->documentElement, 'user', $_SXML['user']);
         setSXMLAttr($doc->documentElement, 'token', $_SXML['token']);
+        if (isset($_SXML['remembered'])) {
+            setSXMLAttr($doc->documentElement, 'remembered-provider', $_SXML['remembered']);
+        }
         if (isset($hash['range'])) {
             setSXMLAttr($doc->documentElement, 'range', $hash['range']);
         }

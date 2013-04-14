@@ -25,26 +25,10 @@
     $_SXML_VARS = array();
 
     // Разбираем строку запроса на $_SXML['file'], $_SXML['query'] и $_SXML_GET;
-    if (false !== ($p = strpos($_SERVER['REQUEST_URI'], '?'))) {
-        $filelocator = substr($_SERVER['REQUEST_URI'], 0, $p);
-        $querystring = substr($_SERVER['REQUEST_URI'], $p + 1);
-        $gets = explode('&', $querystring);
-        if (strpos($gets[count($gets)-1], '=') === false) {
-            $_SXML['query'] = $gets[count($gets)-1];
-            array_pop($gets);
-        } else {
-            $_SXML['query'] = '';
-        }
-        foreach($gets as $i => $get) {
-            if (false !== ($p = strpos($get, '='))) { // Не explode, потому что может быть больше одного знака равенства, а значим только первый.
-                $_SXML_GET[urldecode(substr($get, 0, $p))] = urldecode(substr($get, $p + 1));
-            } else {
-                $_SXML_GET[urldecode(substr($get))] = '';
-            }
-        }
-    } else {
-        $filelocator = $_SERVER['REQUEST_URI'];
-    }
+    $res = splitGetString($_SERVER['REQUEST_URI']);
+    $filelocator = $res['path'];
+    $_SXML_GET = $res['get'];
+    $_SXML['query'] = $res['sxml'] ? $res['sxml'] : '';
     
     // Разбираем POST-запрос
     foreach (explode('&', file_get_contents("php://input")) as $tok) {
