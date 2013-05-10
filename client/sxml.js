@@ -64,6 +64,7 @@ $.extend(SXML, {
     _stylesheets : {},
     _entityCounter : 0,
     
+    root : $('script').map(function(s) { var m = this.src.match(/(.*)\/client\/sxml.js$/); if (m) return m[1]; })[0],
     NS : 'http://sergets.ru/sxml',
     
     init : function(data) {
@@ -186,7 +187,7 @@ $.extend(SXML, {
                 SXML._onExec(action, res)
             },
             error : function(res) {
-                SXML._onError(action, res)
+                SXML._onError(action, arguments)
             }
         })
     
@@ -199,6 +200,12 @@ $.extend(SXML, {
         }, function() {
             SXML.trigger('actionerror', action);
         });
+    
+    },
+    
+    _onError : function(action, args) {
+    
+        SXML.Notifier.error('Не удалось выполнить действие «'+ action +'». Ошибка — ' + args[2]);
     
     },
     
@@ -234,7 +241,7 @@ $.extend(SXML, {
             success && success();
         } else {
             error && error();
-            alert('Ошибка: ' + errorMessage);
+            SXML.Notifier.error('Ошибка: ' + errorMessage);
         }
 
     },
@@ -388,7 +395,7 @@ $.extend(SXML, {
                 }
             },
             error : function() {
-                alert('Ошибка загрузки, обновите страницу');
+                SXML.Notifier.error('Что-то пошло не так, произошла ошибка загрузки. Попробуйте обновить страницу');
             }
         });    
     
@@ -569,7 +576,7 @@ SXML.login = {
     
     login : function(provider) {
     
-        SXML.login.popup('/sxmlight/login/?sxml:provider=' + provider, function() {
+        SXML.login.popup(SXML.root + '/login/?sxml:provider=' + provider, function() {
             SXML.trigger('login');
         });
 
@@ -577,7 +584,7 @@ SXML.login = {
     
     logout : function() {
 
-        SXML.login.frame('/sxmlight/login/?sxml:logout=true', function() {
+        SXML.login.frame(SXML.root + '/login/?sxml:logout=true', function() {
             SXML.trigger('login');
         });
 
@@ -585,11 +592,78 @@ SXML.login = {
     
     trySilentLogin : function(provider) {
 
-        SXML.login.frame('/sxmlight/login/?sxml:provider=' + provider, function() {
+        SXML.login.frame(SXML.root + '/login/?sxml:provider=' + provider, function() {
             SXML.trigger('login');
             delete SXML.data.remeberedProvider;
         }, null, 20);
 
     }
     
+};
+
+// Сообщения
+
+SXML.Notifier = {
+
+    _messages : {},
+    
+    show : function(text, options) {
+        
+        var mark = (options && options.mark) || Math.random(),
+            timeout = (options && options.timeout) || 5000,
+            message = $('<div/>')
+                        .addClass('sxml_message')
+                        .addClass((options && options['class']) || '')
+                        .html(text)
+                        .click(function() {
+                            SXML.Notifier.close(mark);
+                        });
+        if (SXML.Notifier._messages[mark]) {
+            clearTimeout(SXML.Notifier._messages[mark].timeout);
+            SXML.Notifier._messages[mark].message.replaceWith(message);
+            SXML.Notifier._messages[mark].message = message;
+        } else {
+            message.appendTo('#sxml_notifier');
+            SXML.Notifier._messages[mark] = {
+                message : message
+            }
+        }
+        if (timeout > 0) {
+            SXML.Notifier._messages[mark].timeout = setTimeout(function() {
+                message.addClass('sxml_disappearing');
+                delete SXML.Notifier._messages[mark];
+                setTimeout(function() {
+                    message.remove()
+                }, 500);
+            }, timeout)
+        }
+    
+    },
+    
+    close : function(mark) {
+    
+        if (SXML.Notifier._messages[mark]) {
+            clearTimeout(SXML.Notifier._messages[mark].timeout);
+            var message = SXML.Notifier._messages[mark].message;
+            message.addClass('sxml_disappearing');
+            delete SXML.Notifier._messages[mark];
+            setTimeout(function() {
+                message.remove()
+            }, 500);
+        }
+    
+    },
+    
+    ok : function(text) {
+        
+        SXML.Notifier.show(text, { 'class' : 'sxml_ok', timeout : 2000 });
+    
+    },
+    
+    error : function(text) {
+        
+        SXML.Notifier.show(text, { 'class' : 'sxml_error' });
+    
+    }
+
 };

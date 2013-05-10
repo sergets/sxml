@@ -8,9 +8,6 @@
         
             // Общие параметры
             
-            'host' => 'sxml.sergets.ru', // site.ru
-            'root' => '/', // /project.
-            'folder' => 'sxmlight', // Имя папки с обработчиками
             'ns' => 'http://sergets.ru/sxml',
            
             // путь к плагину для логина
@@ -54,9 +51,15 @@
             )
 
         );
-        
+
         // Дописываем автоматом параметры, которые в некоторых окружениях может быть нужно переопределять явно
         $SXMLParams['docroot'] = $_SERVER['DOCUMENT_ROOT']; // /var/www/site_ru
+        $SXMLParams['host'] = $_SERVER['HTTP_HOST']; // site.ru
+        $whereAmI = explode('/', $_SERVER['PHP_SELF']);
+        array_pop($whereAmI); // handler.php
+        array_pop($whereAmI); // common
+        $SXMLParams['folder'] = array_pop($whereAmI);
+        $SXMLParams['root'] = join('/', $whereAmI);
         $SXMLParams['localroot'] = $SXMLParams['docroot'].$SXMLParams['root']; // /var/www/site_ru/project
         
         // путь к базе данных для PDO

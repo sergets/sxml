@@ -19,9 +19,8 @@
           doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"
         />
           
-    <xsl:variable name="sxml-root" select="'/sxmlight'"/>
-    
     <xsl:template name="sxml:page">
+        <xsl:param name="sxml-root"/>
         <xsl:param name="scripts"/>
         <xsl:param name="styles"/>
         <xsl:param name="content"/>
@@ -83,6 +82,7 @@
                          <xsl:apply-templates select="/*"/>
                     </xsl:otherwise>
                 </xsl:choose>
+                <div id="sxml_notifier"/>
 
                 <script type="text/javascript" src="//yandex.st/jquery/1.9.0/jquery.js"></script>
                 <script type="text/javascript" src="{concat($sxml-root, '/client/sxml.js')}"></script>
