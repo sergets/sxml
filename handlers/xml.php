@@ -72,6 +72,9 @@
             header('Content-type: text/html');
             $proc = new XSLTProcessor();
             $ssheet = DOMDocument::load($stylesheet);
+            foreach ($ssheet->getElementsByTagName('import') as $i => $el) {
+                $el->setAttribute('href', resolvePath($el->getAttribute('href'), $stylesheet));
+            }    
             $proc->importStyleSheet($ssheet);
             echo $proc->transformToXML($doc);
             if (!strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest' && !$_SXML_POST['sxml:expect-xml']) {
