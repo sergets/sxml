@@ -13,7 +13,7 @@
         }
     </msxsl:script>
     
-    <xsl:output media-type="text/xhtml" method="html"
+    <xsl:output media-type="text/html" method="html"
           omit-xml-declaration="yes"
           doctype-public="-//W3C//DTD XHTML 1.0 Strict//EN"
           doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"
@@ -361,7 +361,7 @@
     </xsl:template>
     
     <xsl:template name="sxml:quote">
-        <xsl:param name="v"/>
+        <xsl:param name="v" select="''"/>
         <xsl:call-template name="sxml:replace">
             <xsl:with-param name="haystack" select="$v"/>
             <xsl:with-param name="needle" select="&quot;&apos;&quot;"/>
@@ -369,7 +369,7 @@
         </xsl:call-template>
     </xsl:template>
     
-    <xsl:template mode="sxml:quote">
+    <xsl:template match="*" mode="sxml:quote">
         <xsl:call-template name="sxml:replace">
             <xsl:with-param name="haystack" select="."/>
             <xsl:with-param name="needle" select="&quot;&apos;&quot;"/>
