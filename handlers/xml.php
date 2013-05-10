@@ -22,7 +22,7 @@
             $_SXML['action'] = $_SXML_POST['sxml:action'];
             $_SXML['laconic'] = !isset($_SXML_POST['sxml:verbose']);
         }
-s    }
+    }
     
     // Запоминаем, какие страницы нужно будет показать
     if (isset($_SXML_GET['sxml:ranges'])) {
