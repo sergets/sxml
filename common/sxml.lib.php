@@ -68,24 +68,48 @@
         }
     }
 
-    // Ищет в документе блок, указанный с помощью hash, возвращает DOMNode
+    // Ищет в документе блок, указанный с помощью hash, возвращает DOMNode.
+    // Если блока нет, выставляет глобальную переменную _SXML['inSearch'] и возвращает весь документ
     function findBlock($doc, $hash = array()) {
+        global $_SXML;
         if (isset($hash['id'])) {
-            // TODO: эскейпить параметры!
-            // TODO: если блока нет на старте, найти его после процессинга всех запросов
-            $blocks = evaluateXPath($doc, '//*[@sxml:id=\''.$hash['id'].'\']');
+            $blocks = evaluateXPath($doc, '//*[@sxml:id=\''.addslashes($hash['id']).'\']');
             if ($blocks->length > 0) {
                 $block = $blocks->item(0);
+            } else {
+                $_SXML['inSearch'] = $hash;
+                $block = $doc->documentElement;
             }
         } elseif (isset($hash['class']) && isset($hash['inst'])) {
-            $blocks = evaluateXPath($doc, '//*[@sxml:class=\''.$hash['class'].'\' and @sxml:item-id=\''.$hash['inst'].'\']');
+            $blocks = evaluateXPath($doc, '//*[@sxml:class=\''.addslashes($hash['class']).'\' and @sxml:item-id=\''.addslashes($hash['inst']).'\']');
             if ($blocks->length > 0) {
                 $block = $blocks->item(0);
+            } else {
+                $_SXML['inSearch'] = $hash;
+                $block = $doc->documentElement;
             }
         } else {
             $block = $doc->documentElement;
         }
         return $block;
+    }
+    
+    // Проверяет, подходит ли блок под описание
+    function matchesHash($block, $hash) {
+    
+        return(
+            (isset($hash['id']) && hasSXMLAttr($block, 'id') && getSXMLAttr($block, 'id') == $hash['id']) ||
+            (isset($hash['class']) && hasSXMLAttr($block, 'class') && hasSXMLAttr($block, 'item-id')
+                && getSXMLAttr($block, 'class') == $hash['class'] && getSXMLAttr($block, 'item-id') == $hash['inst'] )
+        );
+    
+    }
+    
+    // Проверяет, не этот ли блок мы ищем
+    function isSearched($block) {
+        global $_SXML;
+        
+        return matchesHash($block, $_SXML['inSearch']);
     }
 
     // Загружает и парсит (xml) файл c локального пути $from для инклуда, возвращает DOMNode c выставленными included-from и т. п.
@@ -93,7 +117,6 @@
     function fetch($from, $hash = array()) {
         global $SXMLParams;
         // Здесь нужно дописать парсеры урлов, в частности *.xml.php.
-        // TODO: get-параметры
         $doc = new DOMDocument();
         if (!$from) {
             return null;
@@ -121,7 +144,6 @@
         //       select * from {from} where {where} limit {first},{last-first}   
         //
         if (isInheritedlyVisible($block)) {
-            //setSXMLAttr($block, 'source', local2global($from));
             if (hasSXMLAttr($block, 'enumerable')) {
                 setSXMLAttr($block, 'range', $hash['range']); // Говорим processElement'у, что из этого блока надо будет выбрать 
             }
@@ -142,7 +164,6 @@
         } else {
             $grp = array();
         }
-        // TODO: разобраться, где заполнятются $_SXML['user'] и $_SXML['groups'];
         if (in_array($_SXML['user'], $list)) {
             return true;
         }
@@ -269,64 +290,55 @@
         }
         return array($first, $last, false, false);
     }
-    
-    // Парсит указания блока в том виде, в каком они фигурируют в адресной строке. Возвращает $hash, принимаемый findBlock
-    function parseHash($query) {
-        $hash = array();
-        if (strpos($query, '/') !== false) {
-            $q = explode('/', $query);
-            $hash['range'] = $q[1];
-            $bl = $q[0];
-        } else {
-            $bl = $query;
-        }
-        if (strpos($bl, ':') !== false) {
-            $q = explode(':', $bl);
-            $hash['class'] = $q[0];
-            $hash['inst'] = $q[1];
-        } elseif ($bl != '') {
-            $hash['id'] = $bl;
-        }
-        return $hash;
-    }
 
     // Определяет, какой в результате диапазон нам нужен. Возвращает 5 чисел - orig-first, first, last, orig-last и total.
     // Если range не возвратит ни одного элемента, ставит ещё последний элемент в true
     function getRangesForElement($el) {
+        global $_SXML, $_SXML_GET;
         // TODO переписать на нормальный язык, с && и ||
         if (hasSXMLAttr($el, 'default-range')) {
             $range = getSXMLAttr($el, 'default-range');
         }
-        if (hasSXMLAttr($el, 'range')) {
+        if (hasSXMLAttr($el, 'range') && (getSXMLAttr($el, 'range') != '')) {
             $range = getSXMLAttr($el, 'range');
+        }
+        if (isset($_SXML['ranges'])) {
+            foreach($_SXML['ranges'] as $rangeSpec) {
+                if (isSamePath($rangeSpec['path'], $rangeSpec['get'], local2global($el->baseURI), $_SXML_GET) && matchesHash($el, $rangeSpec['hash'])) {
+                    $range = $rangeSpec['range'];
+                    if (!hasSXMLAttr($el, 'range')) {
+                        setSXMLAttr($el, 'range', $range);
+                    }
+                }
+            }
         }
         if (hasSXMLAttr($el, 'total')) {
             $total = getSXMLAttr($el, 'total');
         } else {
             $total = getAllChildElements($el)->length;
         }
-        if (!isset($range)) {
+        if (!$range) {
             $range = '1-';
         }
         // Парсим оригинальный range
         $r = parseRange($range, $total);
         $or = array(1, $total);
         if (hasSXMLAttr($el, 'original-range')) {
-            $or = parseRange($range, $total);
+            $or = parseRange(getSXMLAttr($el, 'original-range'), $total);
             removeSXMLAttr($el, 'original-range');
-        }    
+        }
         if ($r[0] < $or[0]) {
             $r[0] = $or[0];
         }
         if ($r[1] > $or[1]) {
             $r[1] = $or[1];
         }
+        
         return array($or[0], $r[0], $r[1], $or[1], $total);
     }
 
     // Выставляет правильные атрибуты first и last. На вход получает выход предыдущей функции
     function setRangeAttrs($el, $ranges) {
-        // TODO: понять, не нужно ли здесь ещё sxml:ranges
         setSXMLAttr($el, 'first', $ranges[1]);
         setSXMLAttr($el, 'last', $ranges[2]);
         if (!hasSXMLAttr($el, 'total')) {
@@ -385,6 +397,22 @@
         }
     }
     
+    // Ищет все переменные перед указанным элементом и последовательно их заполняет. Нужно для случая, когда мы запрашиваем часть документа
+    // Переменные — это sxml:var или sxml:query с указанным store, не находящиеся в action.
+    function collectVars($block) {
+        global $SXMLParams;
+  
+        $vars = evaluateXPath($block, 'preceding::sxml:var|(preceding::sxml:'.join('|preceding::sxml:', $SXMLParams['queries']).')[@store and not(ancestor::sxml:action)]');
+        for ($i = 0; $i < $vars->length; $i++) {
+            $var = $vars->item($i);
+            if ($var->localName == 'var') {
+                fillVar($var);
+            } else {
+                processQuery($var);
+            }
+        }        
+    }
+    
     // Выполняет в документе действие: ищёт <sxml:action> с соответствующим именем, прогоняет все элементы. Если элемент первого уровня вышел с ошибкой, то вся завершается с ошибкой,
     // Иначе с результатом всех ok первого уровня. Здесь хинт: можно игнорировать ошибки того или иного запроса, просто спрятав его под неисчезающий тег (т. е. не под sxml:if)
     function executeAction($currentAction) {
@@ -426,15 +454,19 @@
                 $_SXML['inTransaction'] = false;
                 getDB()->commit();
                 
-                // Результат - элемент <sxml:ok> c атрибутом update собранным со всех дочерних <ok'ев>
-                // TODO: всё-таки теги update — наше всё.
+                // Результат - элемент <sxml:ok> c тегами update собранным со всех дочерних <ok'ев> и тегами <sxml:update tag="" item=""/>
                 $actionResult = createSXMLElem($doc, 'ok');
-                $updates = evaluateXPath($currentAction, '/sxml:ok/@update', true);
+                $updateAttrs = evaluateXPath($currentAction, './/sxml:ok/@update', true);
+                $updateTags = evaluateXPath($currentAction, './/sxml:update', true);
                 $updateString = '';
-                foreach($updates as $i => $updateAttr) {
-                    $updateString .= ' ' . $updateAttr->nodeValue;
+                foreach($updateAttrs as $i => $updateAttr) {
+                    $updateTag = createSXMLElem($doc, 'update');
+                    $updateTag->setAttribute('tag', $updateAttr->nodeValue);
+                    $actionResult->appendChild($updateTag);
                 }
-                $actionResult->setAttribute('update', $updateString);
+                foreach($updateTags as $i => $updateTag) {
+                    $actionResult->appendChild($updateTag);
+                }
             }
         }
         $actionResult->setAttribute('action', $currentAction->getAttribute('name'));
@@ -450,7 +482,6 @@
     // Если удалили, возвращает null. Если заменили весь документ и пора заканчивать всю обработку, возвращает false.
     function processElement($el) {
         global $SXMLParams, $_SXML, $_SXML_VARS;
-        $queries = array('select', 'insert', 'delete', 'edit', 'permit-view', 'permit-edit', 'query');
     
         if ($el->nodeType == XML_ELEMENT_NODE) {
             if ($el->namespaceURI == $SXMLParams['ns']) {
@@ -466,7 +497,6 @@
                     break;
                     case 'include':
                         $block = processInclude($el);
-                        //processElement($block);
                         return $block;
                     break;
                     case 'var':
@@ -480,13 +510,21 @@
                         return $textNode;
                     break;
                     default:
-                        if (in_array($el->localName, $queries)) {
+                        if (in_array($el->localName, $SXMLParams['queries'])) {
                             $block = processQuery($el);
                             processElement($block);
                             return $block;
                         }
                 }
             }
+            
+            if (isSearched($el)) {
+                unset($_SXML['inSearch']);
+                $el->ownerDocument->replaceChild($el, $el->ownerDocument->documentElement);
+                processElement($el);
+                return false;
+            }
+            
             $hidden = getEvanescentChildren($el);
             if ($hidden->length > 0) {
                 setSXMLAttr(getNearestBlock($el), 'login-dependent', 'true');
@@ -507,23 +545,23 @@
                     for ($i = $ranges[0]-1; $i < $ranges[3]; $i++) {
                         $el->removeChild($children->item($i));
                     }
-                } else { 
+                } else {
                     // Обрабатываем потомков
                     for ($i = $ranges[0]-1; $i < $ranges[1]-1; $i++) {
-                        $el->removeChild($children->item($i));
+                        $el->removeChild($children->item($i-$ranges[0]+1));
                     }
                     for ($i = $ranges[1]-1; $i < $ranges[2]; $i++) {
-                        processElement($children->item($i));
+                        processElement($children->item($i-$ranges[0]+1));
                     }
                     for ($i = $ranges[2]; $i < $ranges[3]; $i++) {
-                        $el->removeChild($children->item($i));
+                        $el->removeChild($children->item($i-$ranges[0]+1));
                     }
                 }
             } else {
                 for ($i = 0; $i < $children->length; $i++) {
                     if (processElement($children->item($i)) === false) {
                         break;
-                    }  // FIXME: если при процессинге элемент убьют, что произойдёт? 
+                    }
                 }
             }
         }
@@ -552,7 +590,7 @@
             }
         }
         $error->setAttribute('code', $errCode);
-        $error->appendChild($doc->createTextNode($text));
+        $error->setAttribute('message', $text);
         return $error;
     }
     
@@ -579,21 +617,29 @@
         global $_SXML;
         
         $mainNode = createSXMLElem($doc, 'my-groups');
-        $groups = getGroupsForUser($_SXML['user']);
-        if ($groups) {
-            foreach ($groups as $i => $group) {
-                $elem = createSXMLElem($doc, 'group');
-                $elem->setAttribute('id', $group);
-                $mainNode->appendChild($elem);
+        if ($_SXML['user'] !== '') {
+            $groups = getGroupsForUser($_SXML['user']);
+            if ($groups) {
+                foreach ($groups as $i => $group) {
+                    $elem = createSXMLElem($doc, 'group');
+                    $elem->setAttribute('id', $group);
+                    $mainNode->appendChild($elem);
+                }
             }
         }
         return $mainNode;
     }
     
-    // Добавляет к ноде атрибут source с правильной GET-строкой
+    // Добавляет к ноде атрибут source с правильной GET-строкой (исключая служебные параметры)
     function addSourceAttr($el) {
         global $_SXML_GET;
-        setSXMLAttr($el, 'source', local2global($el->baseURI).(count($_SXML_GET) > 0 ? '?'.http_build_query($_SXML_GET) : ''));
+        $myGet = array();
+        foreach ($_SXML_GET as $name => $value) {
+            if (substr($name, 0, 5) !== 'sxml:') {
+                $myGet[$name] = $value;
+            }
+        }
+        setSXMLAttr($el, 'source', local2global($el->baseURI).(count($myGet) > 0 ? '?'.http_build_query($myGet) : ''));
     }
     
     // Основная функция. Получает на вход DOMDocument
@@ -605,27 +651,39 @@
             return;
         }
         if (!$docblock->isSameNode($doc->documentElement)) {
+            collectVars($docblock);
             $doc->replaceChild($docblock, $doc->documentElement);
         }
-        //setSXMLAttr($doc->documentElement, 'source', local2global($doc->documentElement->baseURI).'?'.http_build_query($_SXML_GET));
+
+        $_SXML['found_users'] = array(
+            $_SXML['user'] => true
+        );
+        
+        if (isset($hash['range'])) {
+            setSXMLAttr($doc->documentElement, 'range', $hash['range']);
+        }
+        processElement($doc->documentElement);
+
         addSourceAttr($doc->documentElement);
-        setSXMLAttr($doc->documentElement, 'user', $_SXML['user']);
+        //setSXMLAttr($doc->documentElement, 'user', $_SXML['user']);
         setSXMLAttr($doc->documentElement, 'token', $_SXML['token']);
         if (isset($_SXML['remembered'])) {
             setSXMLAttr($doc->documentElement, 'remembered-provider', $_SXML['remembered']);
         }
-        if (isset($hash['range'])) {
-            setSXMLAttr($doc->documentElement, 'range', $hash['range']);
-        }
-        $_SXML['found_users'] = array(
-            $_SXML['user'] => true
-        );
-        processElement($doc->documentElement);
+
         
         // Добавляем список пользователей в начало
         $SXMLDataNode = createSXMLElem($doc, 'data');
+        if ($_SXML['user']) {
+            $userNode = createSXMLElem($doc, 'user');
+            $userNode->appendChild($doc->createTextNode($_SXML['user']));
+            $SXMLDataNode->appendChild($userNode);
+        }
         $SXMLDataNode->appendChild(makeUsersNode($doc));
         $SXMLDataNode->appendChild(makeGroupsNode($doc));
+        $timeNode = createSXMLElem($doc, 'now');
+        $timeNode->appendChild($doc->createTextNode(date(DATE_ATOM)));
+        $SXMLDataNode->appendChild($timeNode);
         $doc->documentElement->insertBefore($SXMLDataNode, $doc->documentElement->firstChild);
     }
 ?>

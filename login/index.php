@@ -37,8 +37,8 @@
     }
     $OAuthSetup = array(
         'self' => 'http://'.$SXMLParams['host'].$SXMLParams['root'].$SXMLParams['folder'].'/login/?sxml:oauthkey='.$_SESSION['oauth:random_key'],
-        'vk_id' => '3542713',
-        'vk_secret' => 'pSdxVtb7COUga0sZEAQP'
+        'vk_id' => '2441664', // '3542713',
+        'vk_secret' => '0fDYmRanA9f3DQpVoNGB' // 'pSdxVtb7COUga0sZEAQP'
     );
     
     
@@ -153,32 +153,43 @@
         } else {
             doLogin($username, $additionals);
         }
+        $groups = getGroupsForUser($username);
+        foreach($groups as $i => $gr) {
+            $groups[$i] = addslashes($gr);
+        }
         header('HTTP/1.1 200 OK');
-        header('Content-type: application/xml');
-        ?><<?='?'?>xml version="1.0"<?='?'?>><?
-        ?><sxml:ok action="login" xmlns:sxml="<?=($SXMLParams['ns'])?>" sxml:user="<?=$username?>">
-            <sxml:data>
-                <sxml:found-users>
-                    <sxml:user id="<?=$username?>" name="<?=$additionals['name']?>" link="<?=$additionals['link']?>"/>
-                </sxml:found-users>
-                <sxml:my-groups>
-                    <?
-                        foreach (getGroupsForUser($username) as $i => $group) {
-                            ?><sxml:group id="<?=$group?>"/><?
-                        }
-                    ?>
-                </sxml:my-groups>
-            </sxml:data>
-        </sxml:ok><?
+        header('Content-type: text/html');
+        ?><html><body><script type="text/javascript">
+            (window.opener || window.top).SXML.trigger('window', {
+                winId : window.name,
+                isOK : true,
+                user : '<?=addslashes($username)?>',
+                users : [
+                    {
+                        id : '<?=addslashes($username)?>',
+                        name : '<?=addslashes($additionals['name'])?>',
+                        link : '<?=addslashes($additionals['link'])?>'
+                    }
+                ],
+                groups : [
+                    '<?=join('\', \'', $groups)?>'
+                ]
+            });
+        </script></body></html><?
     }
     
     function error($message) {
         global $SXMLParams;
         
         header('HTTP/1.1 200 OK');
-        header('Content-type: application/xml');
-        ?><<?='?'?>xml version="1.0"<?='?'?>><?
-        ?><sxml:error action="login" xmlns:sxml="<?=$SXMLParams['ns']?>"><?=htmlspecialchars($message)?></sxml:error><?
+        header('Content-type: text/html');
+        ?><html><script type="text/javascript">
+            (window.opener || window.top).SXML.trigger('window', {
+                winId : window.name,
+                isOK : false,
+                errorMessage : '<?=addslashes($message)?>'
+            });
+        </script></html><?
     }
     
     /////

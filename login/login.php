@@ -7,6 +7,7 @@
     $user = $_GET['u'];
     
     if (isset($_SESSION['sxml:user'])) {
+        doLogin($user, array('user' => $user, 'name' => 'Test user "'.$user.'"') );
         ?><<?='?'?>xml version="1.0"<?='?'?>>
             <sxml:error xmlns:sxml="<?=$SXMLParams['ns']?>">Already logged in</sxml:error>
         <?

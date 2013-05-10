@@ -10,7 +10,6 @@
     
     $doc = new DOMDocument();
     $doc->load($_SXML['file']);
-    $hash = parseHash($_SXML['query']);
 
     // Выполняем действия
     if (isset($_SXML_POST['sxml:action'])) {
@@ -23,12 +22,23 @@
             $_SXML['action'] = $_SXML_POST['sxml:action'];
             $_SXML['laconic'] = !isset($_SXML_POST['sxml:verbose']);
         }
-        
-        // executeAction($_SXML_POST['sxml:action'], $doc, !isset($_SXML_POST['sxml:verbose']));
+s    }
+    
+    // Запоминаем, какие страницы нужно будет показать
+    if (isset($_SXML_GET['sxml:ranges'])) {
+        $pageEntries = explode(':', $_SXML_GET['sxml:ranges']);
+        $_SXML['ranges'] = array(); 
+        foreach ($pageEntries as $i => $entry) {
+            $p = explode('/', $entry);
+            $splitted = splitGetString(urldecode($p[0]));
+            $_SXML['ranges'][] = array_merge(splitGetString(urldecode($p[0])), array(
+                'range' => urldecode($p[1])
+            ));
+        }
     }
   
     // Обрабатываем документ
-    processDocument($doc, $hash);
+    processDocument($doc, $_SXML['hash']);
     
     // Лог отладки
     /*$debug = $doc->createElementNS($SXMLParams['ns'], 'debug-log');
@@ -43,7 +53,7 @@
     }
     $doc->documentElement->appendChild($debug);*/
     
-    if ($_COOKIE['sxml:allow-xml'] || strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') { // <- TODO: мобильные!
+    if ($_SXML_POST['sxml:expect-xml'] || $_COOKIE['sxml:allow-xml']) {
         header('Content-type: application/xml');
         print $doc->saveXML();
     } else {
@@ -64,7 +74,9 @@
             $ssheet = DOMDocument::load($stylesheet);
             $proc->importStyleSheet($ssheet);
             echo $proc->transformToXML($doc);
-            echo '<!-- Проверка на XSLT --><iframe src="'.$SXMLParams['root'].$SXMLParams['folder'].'/misc/allow_xml.xml" style="display:none"/>';
+            if (!strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest' && !$_SXML_POST['sxml:expect-xml']) {
+                echo '<!-- Проверка на XSLT --><iframe src="'.$SXMLParams['root'].$SXMLParams['folder'].'/misc/allow_xml.xml" style="display:none"/>';
+            }
         }
     }
 ?>

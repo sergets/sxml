@@ -28,7 +28,7 @@
             $query .= ' where '.$where;
         }
         $results = processRawQuery($query, $uses);
-        if (is_array($resuls) && (count($results) > 0) && isset($results[0][$name])) {
+        if (is_array($results) && (count($results) > 0) && isset($results[0][$name])) {
             return $results[0][$name];
         } else {
             return '';
@@ -65,7 +65,10 @@
         $uses = $el->hasAttribute('uses') ? $el->getAttribute('uses') : '';
         
         $owner = simpleSelect('sxml:user', $table, '"sxml:item-id" = '.$item, $uses); // Это безопасно, $item не от пользователя пришёл, а от программиста
-        if ($owner) $allowed .= ' ' . $owner;
+        
+        if ($owner)
+            if ($allowed) $allowed .= ' ' . $owner;
+            else $allowed = $owner;
         
         if (stringPermits($allowed)) {
             return true;
@@ -80,6 +83,7 @@
     // Обрабатывает инструкцию <sxml:select/> - допиленный под наши нужды (имена пользователей, даты, права, страницы) SELECT.
     // <sxml:select from="" where="unescaped sql" [плюс всякие документные штуки типа enumerable, range и т. п.]/>
     function processSelect($el, &$range = null, &$total = null) {
+        global $_SXML;
     
         $db = getDB();
         $ranges = parseFreeRange(getSXMLAttr($el, 'range'));
@@ -97,7 +101,7 @@
             $what = '*';
         }
         $paramStringBeforeWhere = ' from ('.$el->getAttribute('from').') where ( 1 = 1 ';
-        $paramStringAfterWhere = ' and "sxml:deleted" <> \'deleted\')';
+        $paramStringAfterWhere = ' and "sxml:deleted" is null )'; // <> \'deleted\')';
         if ($el->hasAttribute('where')) {
             $paramStringBeforeWhere .= ' and ('.$el->getAttribute('where').')';
         }
@@ -114,14 +118,14 @@
         if ($restricted > 0 || ($ranges[0] === false && $ranges[1] === false && $ranges[2] === false && $ranges[3] === false)) {
             $res = processRawQuery('select '.$what.$paramStringBeforeWhere.$paramStringAfterWhere, $el->getAttribute('uses'));
         } else {
-            $total = $db->query('select count('.$what.') '.$paramStringBeforeWhere.$paramStringAfterWhere)->fetchAll();
+            $total = processRawQuery('select count('.$what.') '.$paramStringBeforeWhere.$paramStringAfterWhere, $el->getAttribute('uses'));
             $total = current($total[0]);
             if ($ranges[0] !== false) {
                 if ($ranges[1] === false) { // 2-
-                    $res = processRawQuery('select '.$what.$paramStringBeforeWhere.$paramStringAfterWhere.' limit -1 offset '.$ranges[0], $el->getAttribute('uses'));
+                    $res = processRawQuery('select '.$what.$paramStringBeforeWhere.$paramStringAfterWhere.' limit -1 offset '.($ranges[0] - 1), $el->getAttribute('uses'));
                     $range = $ranges[0].'-';
                 } else { // 1-10
-                    $res = processRawQuery('select '.$what.$paramStringBeforeWhere.$paramStringAfterWhere.' limit '.($ranges[1] - $ranges[0] + 1).' offset '.$ranges[0], $el->getAttribute('uses'));
+                    $res = processRawQuery('select '.$what.$paramStringBeforeWhere.$paramStringAfterWhere.' limit '.($ranges[1] - $ranges[0] + 1).' offset '.($ranges[0] - 1), $el->getAttribute('uses'));
                     $range = $ranges[0].'-'.$ranges[1];
                 }
             } else { // 7-4
@@ -138,13 +142,13 @@
     }
     
     // Обрабатывает инструкцию <sxml:insert/> - допиленный INSERT
-    // <sxml:insert to=""><field default="123">some unescaped sql :data</field><field>where :vars are substituded from POST</field></sxml:insert>
+    // <sxml:insert into=""><field default="123">some unescaped sql :data</field><field>where :vars are substituded from POST</field></sxml:insert>
     function processInsert($el) {
         global $SXMLParams, $_SXML;
         
         $table = $el->getAttribute('into');
         $data = getContainedData($el);
-        $r = getDB()->exec('create table if not exists "'.$table.'" ("sxml:item-id" integer primary key autoincrement, "'.join('", "', array_keys($data)).'", "sxml:editable-to", "sxml:visible-to", "sxml:open-to", "sxml:time", "sxml:user")');
+        $r = getDB()->exec('create table if not exists "'.$table.'" ("sxml:item-id" integer primary key autoincrement, "'.join('", "', array_keys($data)).'", "sxml:editable-to", "sxml:visible-to", "sxml:open-to", "sxml:time", "sxml:user", "sxml:deleted")');
         return processRawQuery('insert into "'.$table.'" ("'.join('", "', array_keys($data)).'", "sxml:time", "sxml:user") values(('.join('), (', $data).'), \''.date(DATE_ATOM).'\', :user)', $el->getAttribute('uses').' user');
     }
     
@@ -159,7 +163,7 @@
         if (!isChangeAllowed($el)) {
             return 'Нельзя удалять чужое :)';
         } else {
-            return processRawQuery('update '.$table.' set "sxml:deleted" = \'deleted\', "sxml:time" = \''.date(DATE_ATOM).'\' where ("sxml:item-id" = '.$item.')', $uses);
+            return processRawQuery('update '.$el->getAttribute('from').' set "sxml:deleted" = \'deleted\', "sxml:time" = \''.date(DATE_ATOM).'\' where ("sxml:item-id" = '.$el->getAttribute('id').')', $el->getAttribute('uses'));
         }
 
     }
@@ -169,8 +173,8 @@
     // also-open-to - кому можно, кроме автора. Проставляет 'deleted' в поле deleted - чтобы при обновлении можно было заметить, что что-то удалилось
     function processEdit($el) {
     
-        if (!$el->hasAttribute('from') || !$el->hasAttribute('id')) {
-            return 'Неправильный delete';
+        if (!$el->hasAttribute('in') || !$el->hasAttribute('id')) {
+            return 'Неправильный edit';
         }        
         if (!isChangeAllowed($el)) {
             return 'Нельзя редактировать чужое :)';
@@ -180,7 +184,7 @@
             foreach ($data as $field => $content) {
                 $data[$field] = '"'.$field.'" = ('.$content.')';
             }
-            return processRawQuery('update '.$table.' set '.join(', ', $data).', "sxml:time" = \''.date(DATE_ATOM).'\' where ("sxml:item-id" = '.$item.')', $uses);
+            return processRawQuery('update '.$el->getAttribute('in').' set '.join(', ', $data).', "sxml:time" = \''.date(DATE_ATOM).'\' where ("sxml:item-id" = '.$el->getAttribute('id').')', $el->getAttribute('uses'));
         }
 
     }
@@ -214,7 +218,7 @@
     }
     
     // Формирует результирующий элемент
-    function buildResult($el, $result, $range = false) {
+    function buildResult($el, $result, $range = false, $total = false) {
         global $_SXML_VARS;
     
         $doc = $el->ownerDocument;
@@ -252,6 +256,8 @@
                         $entryClass = $el->getAttribute('entry-class');
                         if (substr($entry, 0, 5) === 'sxml:') {
                             $rowElem = createSXMLElem($doc, $SXMLParams['ns'], substr($entry, 5)); 
+                        } else if ($entry == '') {
+                            $rowElem = $doc->createElement('entry');
                         } else {
                             $rowElem = $doc->createElement($entry); 
                         }

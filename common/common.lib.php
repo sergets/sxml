@@ -5,22 +5,42 @@
     
     require_once 'setup.php';
     
+    // Парсит указания блока в том виде, в каком они фигурируют в адресной строке. Возвращает $hash, принимаемый findBlock
+    function parseHash($query) {
+        $hash = array();
+        if (strpos($query, '/') !== false) {
+            $q = explode('/', $query);
+            $hash['range'] = $q[1];
+            $bl = $q[0];
+        } else {
+            $bl = $query;
+        }
+        if (strpos($bl, ':') !== false) {
+            $q = explode(':', $bl);
+            $hash['class'] = $q[0];
+            $hash['inst'] = $q[1];
+        } elseif ($bl != '') {
+            $hash['id'] = $bl;
+        }
+        return $hash;
+    }    
+    
     // Разбирает $path на три части: path - путь до знака вопроса, массив get-параметров и sxml-локатор (т. е. последний get-параметр без знака равенства). 
     function splitGetString($path) {
         $result = array(
             'path' => false,
             'get' => array(),
-            'sxml' => false
+            'hash' => false
         );
         if (false !== ($p = strpos($path, '?'))) {
             $result['path'] = substr($path, 0, $p);
             $querystring = substr($path, $p + 1);
             $gets = explode('&', $querystring);
             if (strpos($gets[count($gets)-1], '=') === false) {
-                $result['sxml'] = $gets[count($gets)-1];
+                $result['hash'] = parseHash($gets[count($gets)-1]);
                 array_pop($gets);
             } else {
-                $result['sxml'] = '';
+                $result['hash'] = array();
             }
             foreach($gets as $i => $get) {
                 if (false !== ($p = strpos($get, '='))) { // Не explode, потому что может быть больше одного знака равенства, а значим только первый.
@@ -29,13 +49,25 @@
                     $result['get'][urldecode(substr($get))] = '';
                 }
             }
+            
         } else {
             $result['path'] = $path;
         }
         return $result;
     }
+    
+    // Проверяет, являются ли переданные пути одинаковыми с точностью до порядка атрибутов get без учёта служебных. get передаются в массивах ключ = значение.
+    function isSamePath($path1, $get1, $path2, $get2) {
+        if ($path1 !== $path2) return false;
+        ksort($get1);
+        ksort($get2);
+        $difference = array_merge(array_diff_key($get1, $get2), array_diff_key($get2, $get1));
+        foreach ($difference as $key => $value) {
+            if (substr($key, 0, 5) !== 'sxml:') return false;
+        }
+        return true;
+    }
  
-
     // Определяет, является ли $path относительным адресом и в любом случае преобразует его к локальному пути. Если путь не преобразуется к локальному,
     // то возвращает false
     function resolvePath($path, $baseURI = '') {

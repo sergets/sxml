@@ -8,7 +8,7 @@
         
             // Общие параметры
             
-            'host' => 'sxml', // site.ru
+            'host' => 'sxml.sergets.ru', // site.ru
             'root' => '/', // /project.
             'folder' => 'sxmlight', // Имя папки с обработчиками
             'ns' => 'http://sergets.ru/sxml',
@@ -39,7 +39,19 @@
                 'index.xml.php',
                 'index.xml'
             ),
-            'dirhandler' => '../handlers/directory.php'
+            'dirhandler' => '../handlers/directory.php',
+            
+            // Список возможных действий
+            
+            'queries' => array(
+                'select',
+                'insert',
+                'delete',
+                'edit',
+                'permit-view',
+                'permit-edit',
+                'query'
+            )
 
         );
         

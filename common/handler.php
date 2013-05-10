@@ -3,10 +3,6 @@
     // Выделяет имя запрошенного файла и запрос, передаёт управление соответствующему обработчику,
     // если файл существует, иначе - странице ошибки.
     
-    $stderr = fopen('php://stderr', 'w');
-    fwrite($stderr, 'Errors would be here');
-
-    $userid = 'sergets'; // $_SESSION['userid'];
     error_reporting( E_ERROR + E_WARNING ); 
     
     require_once 'setup.php';
@@ -22,13 +18,15 @@
     $_SXML_GET = array();
     $_SXML_POST = array();
     $_SXML_REQUEST = array();
-    $_SXML_VARS = array();
+    $_SXML_VARS = array(
+        'user' => $_SXML['user']
+    );
 
     // Разбираем строку запроса на $_SXML['file'], $_SXML['query'] и $_SXML_GET;
     $res = splitGetString($_SERVER['REQUEST_URI']);
     $filelocator = $res['path'];
     $_SXML_GET = $res['get'];
-    $_SXML['query'] = $res['sxml'] ? $res['sxml'] : '';
+    $_SXML['hash'] = $res['hash'];
     
     // Разбираем POST-запрос
     foreach (explode('&', file_get_contents("php://input")) as $tok) {
@@ -40,6 +38,7 @@
     $_SXML['file'] = $file = resolvePath($filelocator); // $file - локальное имя файла
     
     if (!file_exists($file)) {
+        // TODO: базовые параметры через слеш, для красоты.
     
         $ready = true;
         header('HTTP/1.0 404 Not Found');
@@ -86,7 +85,7 @@
             // Файл направили на нас в .htaccess'е через 403, но хендлера не нашлось. Значит, это и правда 403.
             $ready = true;
             header('HTTP/1.0 403 Forbidden');
-            include ($SXMLParams['errors']['403']);      
+            include ($SXMLParams['errors']['403']);
         
         }
     
