@@ -47,8 +47,9 @@
     } elseif (is_dir($file)) {
         $foundindex = false;
         foreach ($SXMLParams['dirindex'] as $i => $indexfile) {
-            if (file_exists($file.'/'.$indexfile)) {
-                $_SXML['file'] = $file = $file.'/'.$indexfile;
+            $indexPath = strrpos($file, '/') === strlen($file) - 1 ? $file.$indexfile : $file.'/'.$indexfile;
+            if (file_exists($indexPath)) {
+                $_SXML['file'] = $file = $indexPath;
                 $foundindex = true;
                 break;
             }
