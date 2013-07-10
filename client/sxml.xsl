@@ -25,11 +25,45 @@
         <xsl:param name="styles"/>
         <xsl:param name="content"/>
         <xsl:param name="title" select="''"/>
+        <xsl:variable name="path-to-xsl" select="substring-before(substring-after(processing-instruction('xml-stylesheet'), 'href=&quot;'), '&quot;')"/>
+        <xsl:variable name="xsl-name">
+            <xsl:call-template name="substring-after-last">
+                <xsl:with-param name="haystack" select="$path-to-xsl"/>
+                <xsl:with-param name="needle" select="'/'"/>
+            </xsl:call-template>
+        </xsl:variable>
+        <xsl:variable name="xsl-folder" select="substring($path-to-xsl, 0, string-length($path-to-xsl) - string-length($xsl-name))"/>
+        <xsl:variable name="sxml-root-from-xml">
+            <xsl:choose>
+                <xsl:when test="starts-with($sxml-root, '/')">
+                    <xsl:value-of select="$sxml-root"/>
+                </xsl:when>
+                <xsl:otherwise>
+                    <xsl:value-of select="concat($xsl-folder, '/', $sxml-root)"/>
+                </xsl:otherwise>
+            </xsl:choose>
+        </xsl:variable>
+        <xsl:variable name="sxml-folder">
+            <xsl:call-template name="substring-after-last">
+                <xsl:with-param name="haystack" select="$sxml-root-from-xml"/>
+                <xsl:with-param name="needle" select="'/'"/>
+            </xsl:call-template>
+        </xsl:variable>
+        <xsl:variable name="root-from-xml" select="substring($sxml-root-from-xml, 0, string-length($sxml-root-from-xml) - string-length($sxml-folder))"/>
+        
         <html>
             <head>
                 <title><xsl:value-of select="$title"/></title>
                 <meta http-equiv="Content-type" content="text/html; charset=utf-8"/>
                 <xsl:for-each select="exsl:node-set($styles)/*">
+                    <xsl:choose>
+                        <xsl:when test="@relative">
+                            <link rel="stylesheet" type="text/css" href="{concat($root-from-xml, .)}"/>
+                        </xsl:when>
+                        <xsl:otherwise>
+                            <link rel="stylesheet" type="text/css" href="{.}"/>
+                        </xsl:otherwise>
+                    </xsl:choose>
                     <link rel="stylesheet" type="text/css" href="{.}"/>
                 </xsl:for-each>
             </head>
@@ -74,6 +108,7 @@
                             </xsl:with-param>
                     </xsl:call-template>
                 </div>
+                
                 <xsl:choose>
                     <xsl:when test="$content">
                         <xsl:apply-templates select="$content"/>
@@ -85,10 +120,17 @@
                 <div id="sxml_notifier"/>
 
                 <script type="text/javascript" src="//yandex.st/jquery/1.9.0/jquery.js"></script>
-                <script type="text/javascript" src="{concat($sxml-root, '/client/sxml.js')}"></script>
+                <script type="text/javascript" src="{concat($sxml-root-from-xml, '/client/sxml.js')}"></script>
 
                 <xsl:for-each select="exsl:node-set($scripts)/*">
-                    <script type="text/javascript" src="{.}"></script>
+                    <xsl:choose>
+                        <xsl:when test="@relative">
+                            <script type="text/javascript" src="{concat($root-from-xml, .)}"></script>
+                        </xsl:when>
+                        <xsl:otherwise>
+                            <script type="text/javascript" src="{.}"></script>
+                        </xsl:otherwise>
+                    </xsl:choose>
                 </xsl:for-each>
                 <script type="text/javascript">
                     document.body.onload()();
@@ -375,6 +417,22 @@
             <xsl:with-param name="needle" select="&quot;&apos;&quot;"/>
             <xsl:with-param name="replace" select="&quot;\&apos;&quot;"/>
         </xsl:call-template>
+    </xsl:template>
+    
+    <xsl:template name="substring-after-last">
+        <xsl:param name="haystack"/>
+        <xsl:param name="needle"/>
+        <xsl:choose>
+            <xsl:when test="contains(substring-after($haystack, $needle), $needle)">
+                <xsl:call-template name="substring-after-last">
+                    <xsl:with-param name="haystack" select="substring-after($haystack, $needle)"/>
+                    <xsl:with-param name="needle" select="$needle"/>
+                </xsl:call-template>
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:value-of select="substring-after($haystack, $needle)"/>
+            </xsl:otherwise>
+        </xsl:choose>
     </xsl:template>
     
     <xsl:template name="sxml:user">
