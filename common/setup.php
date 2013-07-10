@@ -63,7 +63,7 @@
         $SXMLParams['localroot'] = $SXMLParams['docroot'].$SXMLParams['root']; // /var/www/site_ru/project
         
         // путь к базе данных для PDO
-        $SXMLParams['db'] = 'sqlite:'.$SXMLParams['localroot'].'/'.$SXMLParams['folder'].'/data/data.sqlite';
+        $SXMLParams['db'] = 'sqlite:'.$SXMLParams['localroot'].'/data/data.sqlite';
     
     }
 ?>
