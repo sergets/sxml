@@ -59,7 +59,7 @@
         array_pop($whereAmI); // handler.php
         array_pop($whereAmI); // common
         $SXMLParams['folder'] = array_pop($whereAmI);
-        $SXMLParams['root'] = join('/', $whereAmI);
+        $SXMLParams['root'] = '/'.join('/', $whereAmI);
         $SXMLParams['localroot'] = $SXMLParams['docroot'].$SXMLParams['root']; // /var/www/site_ru/project
         
         // путь к базе данных для PDO

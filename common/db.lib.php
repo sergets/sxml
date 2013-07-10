@@ -149,7 +149,11 @@
         $table = $el->getAttribute('into');
         $data = getContainedData($el);
         $r = getDB()->exec('create table if not exists "'.$table.'" ("sxml:item-id" integer primary key autoincrement, "'.join('", "', array_keys($data)).'", "sxml:editable-to", "sxml:visible-to", "sxml:open-to", "sxml:time", "sxml:user", "sxml:deleted")');
-        return processRawQuery('insert into "'.$table.'" ("'.join('", "', array_keys($data)).'", "sxml:time", "sxml:user") values(('.join('), (', $data).'), \''.date(DATE_ATOM).'\', :user)', $el->getAttribute('uses').' user');
+        $rq = processRawQuery('insert into "'.$table.'" ("'.join('", "', array_keys($data)).'", "sxml:time", "sxml:user") values(('.join('), (', $data).'), \''.date(DATE_ATOM).'\', :user)', $el->getAttribute('uses').' user');
+        if ($rq) {
+            $rq = simpleSelect('sxml:item-id', $table, 'rowid=last_insert_rowid();');
+        }
+        return $rq;
     }
     
     // Обрабатывает инструкцию <sxml:delete/> - допиленный DELETE
@@ -189,7 +193,7 @@
 
     }
     
-    // Обрабатывает сырую транзакцию, возвращает массив результатов, либо true, либо строку с ошибкой
+    // Обрабатывает сырую транзакцию, возвращает массив результатов, либо true, либо строку с ошибкой, либо число — айдишник последней записи
     function processRawQuery($q, $uses = null) {
         global $_SXML_VARS;
 
@@ -222,7 +226,7 @@
         global $_SXML_VARS;
     
         $doc = $el->ownerDocument;
-        if (is_array($result) || $result === true && ($el->localName == 'select' || $el->hasAttribute('nook'))) { 
+        if (is_array($result) || (is_numeric($result) || $result === true) && ($el->localName == 'select' || $el->hasAttribute('nook'))) { 
             // Если это запрос не на действие, то в любом случае показываем нужный тег 
             if ($el->hasAttribute('store')) {
                 $_SXML_VARS[$el->getAttribute('store')] = current($result[0]);
@@ -284,6 +288,13 @@
             }
         } elseif ($result === true) {
             return createSXMLElem($doc, 'ok');
+        } elseif (is_numeric($result)) {
+            $ok = createSXMLElem($doc, 'ok');
+            if ($el->hasAttribute('store')) {
+                $_SXML_VARS[$el->getAttribute('store')] = $result;
+            }
+            $ok->setAttribute('last-insert-id', $result);
+            return $ok;
         } else {
             return createError($doc, 4, $result);
         }

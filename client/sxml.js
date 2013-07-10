@@ -147,23 +147,30 @@ $.extend(SXML, {
         $(pagers).click(function(e) {
             SXML.turnPage($(this).closest('.sxml'), this.ondblclick().pager);
         });
-        SXML.trigger('register', node);
+        SXML.trigger('register', {
+            node : node,
+            entity : entity
+        });
     
     },
     
     _unregisterEntity : function(node) {
     
-        var entityId = $(node).data('sxmlEntityId');
-        if (SXML._entities[entityId] && SXML._entities[entityId].sxml.update) {
-            $.each(SXML._entities[entityId].sxml.update, function(i, tag) {
+        var entityId = $(node).data('sxmlEntityId'),
+            entity = SXML._entities[entityId];
+        if (entity && entity.sxml.update) {
+            $.each(entity.sxml.update, function(i, tag) {
                 delete SXML._updateIndex[tag][entityId];
             });
         }
-        if (SXML._entities[entityId].sxml.loginDependent) {
+        if (entity.sxml.loginDependent) {
             delete SXML._loginDependentIndex[entityId];
         }
         delete SXML._entities[entityId];
-        SXML.trigger('unregister', this);
+        SXML.trigger('unregister', {
+            node : node,
+            entity : entity
+        });
     
     },
     
