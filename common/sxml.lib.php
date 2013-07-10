@@ -469,6 +469,9 @@
                 }
             }
         }
+        if ($currentAction->hasAttribute('returns') && isset($_SXML_VARS[$currentAction->getAttribute('returns')])) {
+            $actionResult->setAttribute('returned', $_SXML_VARS[$currentAction->getAttribute('returns')]);
+        }
         $actionResult->setAttribute('action', $currentAction->getAttribute('name'));
 
         $replaced = $_SXML['laconic']? $doc->documentElement : $currentAction;

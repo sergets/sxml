@@ -53,7 +53,7 @@
     }
     $doc->documentElement->appendChild($debug);*/
     
-    if ($_SXML_POST['sxml:expect-xml'] || $_SXML_GET['sxml:expect-xml']) {// || $_COOKIE['sxml:allow-xml']) {
+    if ($_SXML_POST['sxml:expect-xml'] || $_SXML_GET['sxml:expect-xml'] || $_COOKIE['sxml:allow-xml']) {
         header('Content-type: application/xml');
         print $doc->saveXML();
     } else {

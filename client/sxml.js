@@ -202,10 +202,15 @@ $.extend(SXML, {
     
     _onExec : function(action, res) {
     
-        SXML.processResponse(res, function() {
-            SXML.trigger('actioncomplete', action);
+        SXML.processResponse(res, function(returnValue) {
+            SXML.trigger('actioncomplete', {
+                action : action,
+                returned : returnValue
+            });
         }, function() {
-            SXML.trigger('actionerror', action);
+            SXML.trigger('actionerror', {
+                action : action
+            });
         });
     
     },
@@ -220,10 +225,13 @@ $.extend(SXML, {
     
         SXML._updateCommonData(xml);
         
-        var isOK, updates = [], errorMessage = '';
+        var isOK, updates = [], returnValue = '', errorMessage = '';
         if (xml instanceof Document) {
             if (xml.documentElement.localName == 'ok' && xml.documentElement.namespaceURI == SXML.NS) {
                 isOK = true;
+                if (xml.documentElement.hasAttribute('returned')) {
+                    returnValue = xml.documentElement.getAttribute('returned');
+                }
                 var updateList = xml.getElementsByTagNameNS(SXML.NS, 'update');
                 $.each(updateList, function(i, updateItem) {
                     updates.push({ tag : updateItem.getAttribute('tag') });
@@ -234,18 +242,18 @@ $.extend(SXML, {
             }
         } else {
             isOK = xml.isOK;
+            returnValue = xml.returnValue || '';
             updates = xml.updates || [];
             if (!isOK) {
                 errorMessage = xml.errorMessage;
             }
         }
-     
         if (isOK) {
             $.each(updates, function(i, up) {
                 SXML._updateIndex[up.tag] && SXML.update(SXML._updateIndex[up.tag]);
             });
             SXML.trigger('action');
-            success && success();
+            success && success(returnValue);
         } else {
             error && error();
             SXML.Notifier.error('Ошибка: ' + errorMessage);

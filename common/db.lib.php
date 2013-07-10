@@ -224,7 +224,7 @@
     // Формирует результирующий элемент
     function buildResult($el, $result, $range = false, $total = false) {
         global $_SXML_VARS;
-    
+   
         $doc = $el->ownerDocument;
         if (is_array($result) || (is_numeric($result) || $result === true) && ($el->localName == 'select' || $el->hasAttribute('nook'))) { 
             // Если это запрос не на действие, то в любом случае показываем нужный тег 
@@ -296,7 +296,7 @@
             $ok->setAttribute('last-insert-id', $result);
             return $ok;
         } else {
-            return createError($doc, 4, $result);
+            return createError($doc, 4);
         }
     }
     
