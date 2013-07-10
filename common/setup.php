@@ -26,6 +26,7 @@
             'handlers' => array(
                 'xml' => '../handlers/xml.php',
                 'xml.php' => '../handlers/xml.php.php',
+                'css' => '../handlers/css.php',
                 'jpg' => '../handlers/jpeg.php',
                 'jpeg' => '../handlers/jpeg.php'
             ),
@@ -59,11 +60,11 @@
         array_pop($whereAmI); // handler.php
         array_pop($whereAmI); // common
         $SXMLParams['folder'] = array_pop($whereAmI); // sxml
-        $SXMLParams['root'] = '/'.join('/', $whereAmI); // / or /project
-        $SXMLParams['localroot'] = $SXMLParams['docroot'].$SXMLParams['root']; // /var/www/site_ru/project
+        $SXMLParams['root'] = '/'.join('/', $whereAmI).((count($whereAmI) > 0) ? '/' : ''); // / or /project/
+        $SXMLParams['localroot'] = $SXMLParams['docroot'].$SXMLParams['root']; // /var/www/site_ru/project/
         
         // путь к базе данных для PDO
-        $SXMLParams['db'] = 'sqlite:'.$SXMLParams['localroot'].'/data/data.sqlite';
+        $SXMLParams['db'] = 'sqlite:'.$SXMLParams['localroot'].'data/data.sqlite';
     
     }
 ?>

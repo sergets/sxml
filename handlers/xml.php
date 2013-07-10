@@ -78,7 +78,7 @@
             $proc->importStyleSheet($ssheet);
             echo $proc->transformToXML($doc);
             if (!strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest' && !$_SXML_POST['sxml:expect-xml']) {
-                echo '<!-- Проверка на XSLT --><iframe src="'.$SXMLParams['root'].'/'.$SXMLParams['folder'].'/misc/allow_xml.xml" style="display:none"/>';
+                echo '<!-- Проверка на XSLT --><iframe src="'.$SXMLParams['root'].$SXMLParams['folder'].'/misc/allow_xml.xml" style="display:none"/>';
             }
         }
     }
