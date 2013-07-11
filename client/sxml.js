@@ -184,7 +184,7 @@ $.extend(SXML, {
 
         var context = this,
             matches = function(obj, pattern) {
-                if (typeof pattern == 'object') {
+                if (typeof pattern == 'object' && typeof obj == 'object') {
                     var res = true;
                     $.each(pattern, function(key, value) {
                         if(!matches(obj[key], value)) {
@@ -201,11 +201,11 @@ $.extend(SXML, {
             if (matches(options.entity, conditions)) {
                 callback.call(ctx, options);
                 if (once) {
-                    context.un('register', handler);
+                    context.un(event, handler);
                 }
             }
         }
-        context.on('register', handler);
+        context.on(event, handler);
 
     },
 
