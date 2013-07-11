@@ -37,8 +37,8 @@
     }
     $OAuthSetup = array(
         'self' => 'http://'.$SXMLParams['host'].$SXMLParams['root'].$SXMLParams['folder'].'/login/?sxml:oauthkey='.$_SESSION['oauth:random_key'],
-        'vk_id' => '2441664', // '3542713',
-        'vk_secret' => '0fDYmRanA9f3DQpVoNGB' // 'pSdxVtb7COUga0sZEAQP'
+        'vk_id' => '1931312', // '2441664', // '3542713',
+        'vk_secret' => 'YhKsOqqRNwv96hV9qybE' // '0fDYmRanA9f3DQpVoNGB' // 'pSdxVtb7COUga0sZEAQP'
     );
     
     
