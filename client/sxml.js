@@ -173,6 +173,54 @@ $.extend(SXML, {
         });
     
     },
+
+
+    onParticular : function(event, conditions, callback, ctx, once) {
+
+        if (typeof ctx == 'boolean') {
+            once = ctx;
+            ctx = window;
+        }
+
+        var context = this,
+            matches = function(obj, pattern) {
+                if (typeof pattern == 'object') {
+                    var res = true;
+                    $.each(pattern, function(key, value) {
+                        if(!matches(obj[key], value)) {
+                            res = false;
+                        }
+                    });
+                    return res;
+                } else {
+                    return (obj == pattern);
+                }
+            };
+       
+        var handler = function(options) {
+            if (matches(options.entity, conditions)) {
+                callback.call(ctx, options);
+                if (once) {
+                    context.un('register', handler);
+                }
+            }
+        }
+        context.on('register', handler);
+
+    },
+
+    greet : function(conditions, callback, ctx, once) {
+
+        SXML.onParticular('register', conditions, callback, ctx, once);
+
+    },
+
+    goodbye : function(conditions, callback, ctx, once) {
+
+        SXML.onParticular('unregister', conditions, callback, ctx, once);
+
+    },
+
     
     exec : function(url, action, params) {
     
