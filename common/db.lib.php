@@ -145,11 +145,29 @@
     // <sxml:insert into=""><field default="123">some unescaped sql :data</field><field>where :vars are substituded from POST</field></sxml:insert>
     function processInsert($el) {
         global $SXMLParams, $_SXML;
-        
+
         $table = $el->getAttribute('into');
         $data = getContainedData($el);
         $r = getDB()->exec('create table if not exists "'.$table.'" ("sxml:item-id" integer primary key autoincrement, "'.join('", "', array_keys($data)).'", "sxml:editable-to", "sxml:visible-to", "sxml:open-to", "sxml:time", "sxml:user", "sxml:deleted")');
-        $rq = processRawQuery('insert into "'.$table.'" ("'.join('", "', array_keys($data)).'", "sxml:time", "sxml:user") values(('.join('), (', $data).'), \''.date(DATE_ATOM).'\', :user)', $el->getAttribute('uses').' user');
+        $queryText = 'insert into "'.$table.'" ("'.join('", "', array_keys($data)).'", "sxml:time", "sxml:user") values(('.join('), (', $data).'), \''.date(DATE_ATOM).'\', :user)';
+        $queryVars = $el->getAttribute('uses').' user';
+        $rq = processRawQuery($queryText, $queryVars);
+        if (!$rq || strpos($rq, 'DB error') !== false) {
+            $pragma = processRawQuery('pragma table_info("'.$table.'")');
+            print_r($pragma);
+            if ($pragma) {
+                $actualColumns = array();
+                foreach($pragma as $i => $row) {
+                    $actualColumns[] = $row[1];
+                }
+                foreach($data as $key => $v) {
+                    if (!in_array($key, $actualColumns)) {
+                        processRawQuery('alter table "'.$table.'" add column "'.$key.'"');
+                    }
+                }
+                $rq = processRawQuery($queryText, $queryVars);
+            }
+        }
         if ($rq) {
             $rq = simpleSelect('sxml:item-id', $table, 'rowid=last_insert_rowid();');
         }
