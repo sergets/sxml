@@ -382,17 +382,27 @@
         
         if ($var->hasAttribute('name') && $var->hasAttribute('from') && $var->hasAttribute('value')) {
             $name = $var->getAttribute('name');
-            $from = $var->getAttribute('from');
+            $from = $var->getAttribute('from'); 
             $value = $var->getAttribute('value');
+            $val = false;
             if (!$var->hasAttribute('preserve-old') || !isset($_SXML_VARS['name'])) {
                 if ($from == 'get') {
-                    $_SXML_VARS[$name] = $_SXML_GET[$value];
+                    $val = $_SXML_GET[$value];
                 } elseif ($from == 'post') {
-                    $_SXML_VARS[$name] = $_SXML_POST[$value];
+                    $val = $_SXML_POST[$value];
                 } elseif ($from == 'sxml') {
-                    $_SXML_VARS[$name] = $_SXML[$value];
+                    $val = $_SXML[$value];
                 }
                 // TODO выражения - арифметика, конкатенация, if...
+                if ($var->hasAttribute('accept') && !preg_match('/'.$var->hasAttribute('accept').'/', $val)) {
+                    $err = createError($var->ownerDocument, 8);
+                    $var->parentNode->replaceChild($err, $var);
+                    return $err;
+                } else {
+                    $_SXML_VARS[$name] = $val;
+                    $var->parentNode->removeChild($var);
+                    return null;
+                }
             }
         }
     }
@@ -503,9 +513,8 @@
                         return $block;
                     break;
                     case 'var':
-                        fillVar($el);
-                        $el->parentNode->removeChild($el);
-                        return null;
+                        $var = fillVar($el);
+                        return $var;    
                     break;
                     case 'value-of':
                         $textNode = $el->ownerDocument->createTextNode($_SXML_VARS[$el->getAttribute('var')]);
@@ -582,7 +591,8 @@
             4 => 'Неправильный запрос к базе данных',
             5 => 'Неправильный токен',
             6 => 'Недостаточно прав',
-            7 => 'Неверное действие'
+            7 => 'Неверное действие',
+            8 => 'Неподходящее значение параметра'
         );
         $error = $doc->createElementNS($SXMLParams['ns'], 'error');
         if (!$text) {

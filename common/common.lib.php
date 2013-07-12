@@ -128,6 +128,21 @@
     }
     
     //////
+    
+    function substituteVars($txt, $arr, $fallback = array()) {
+        $matches = false;
+        while(preg_match('/\{\$([\w\-\:\/]+)\}/', $txt, $matches)) {
+            $varname = $matches[1];
+            if (isset($arr[$varname]) || isset($fallback[$varname])) {
+                $txt = str_replace('{$'.$varname.'}', isset($arr[$varname])? $arr[$varname] : $fallback[$varname], $txt);
+            } else {
+                $txt = str_replace('{$'.$varname.'}', '', $txt);
+            }
+        }
+        return $txt;
+    }
+    
+    //////
     // Отладка
     /////
     

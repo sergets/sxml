@@ -249,11 +249,12 @@
                 }
                 for ($i = 0; $i < $el->attributes->length; $i++) {
                     $child = $el->attributes->item($i);
-                    if (!in_array($child->localName, array('from', 'where', 'what', 'into', 'order-by', 'what', 'tag', 'entry', 'attrs', 'uses', 'store', 'also-open-to'))) {
+                    if (!in_array($child->localName, array('from', 'where', 'what', 'into', 'order-by', 'what', 'tag', 'entry', 'attrs', 'ignore', 'uses', 'store', 'also-open-to'))) {
                         $res->setAttributeNS($child->namespaceURI, $child->nodeName, $child->nodeValue);
                     }
                 }
                 $attrs = explode(' ', $el->getAttribute('attrs'));
+                $ignore = explode(' ', $el->getAttribute('ignore'));
                 if (is_array($result)) {  // Иначе в ответе ничего 
                     foreach ($result as $i => $row) {
                         $entry = $el->getAttribute('entry');
@@ -279,6 +280,21 @@
                                     $q->appendChild($doc->createTextNode($value));
                                     $rowElem->appendChild($q);
                                 }
+                            }
+                        }
+                        // Подстановка вложенных элементов 
+                        foreach($el->childNodes as $i => $child) {
+                            if ($child->nodeType == XML_ELEMENT_NODE) {
+                                $readyElem = $child->cloneNode(true);
+                                foreach($readyElem->attributes as $a => $attr) {
+                                    $attr->value = substituteVars($attr->value, $row, $_SXML_VARS);
+                                }
+                                foreach($readyElem->childNodes as $a => $grandchild) {
+                                    if ($grandchild->nodeType == XML_TEXT_NODE) {
+                                        $readyElem->replaceChild($readyElem->ownerDocument->createTextNode(substituteVars($grandchild->wholeText, $row, $_SXML_VARS)), $grandchild);
+                                    }
+                                }
+                                $rowElem->appendChild($readyElem);
                             }
                         }
                         $res->appendChild($rowElem);
