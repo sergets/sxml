@@ -39,9 +39,9 @@
 
     // Возвращает объект DOMXPath.
     function getXPath($doc) {
-        global $_xpaths;
+        global $_xpaths, $_SXML_GET;
         // TODO - профилировать - оно вообще надо?
-        $uid = md5($doc->saveXML());
+        $uid = md5($doc->saveXML() . $doc->documentURI . join($_SXML_GET));
         if (isset($_xpaths[$uid])) {
             return $_xpaths[$uid];
         } else {
