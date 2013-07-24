@@ -8,6 +8,7 @@
 
     // Кеши для часто встречающихся объектов
     $_xpaths = array();
+    $_xpathDocs = array();
 
     ///////////////
     
@@ -39,14 +40,15 @@
 
     // Возвращает объект DOMXPath.
     function getXPath($doc) {
-        global $_xpaths, $_SXML_GET;
+        global $_xpaths, $_xpathDocs, $_SXML_GET;
         // TODO - профилировать - оно вообще надо?
         $uid = md5($doc->saveXML() . $doc->documentURI . join($_SXML_GET));
-        if (isset($_xpaths[$uid])) {
+        if (isset($_xpaths[$uid]) && $_xpathDocs[$uid] === $doc) {
             return $_xpaths[$uid];
         } else {
             $_xpaths[$uid] = new DOMXPath($doc);
             $_xpaths[$uid]->registerNamespace('sxml', 'http://sergets.ru/sxml');
+            $_xpathDocs[$uid] = $doc;
             return $_xpaths[$uid];
         }
     }
