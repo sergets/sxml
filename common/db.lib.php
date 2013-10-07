@@ -11,7 +11,17 @@
     function getDB() {
         global $SXML_DBHandler, $SXMLParams;
         if (!$SXML_DBHandler) {
-            $SXML_DBHandler = new PDO($SXMLParams['db']);
+            try {
+                $SXML_DBHandler = new PDO($SXMLParams['db']);
+            } catch(PDOException $e) {
+                $far = split(':', $SXMLParams['db']);
+                $f = $far[1];
+                if (!file_exists($f)) {
+                    fopen($f, 'w');
+                    fclose($f);
+                    $SXML_DBHandler = new PDO($SXMLParams['db']);                    
+                }
+            }
         }
         return $SXML_DBHandler;
     }
@@ -19,6 +29,24 @@
     function closeDB() {
         global $SXML_DBHandler;
         $SXML_DBHandler = null;
+    }
+    
+    function logQuery($query, $vars, $result) {
+        global $SXMLParams;
+        
+        $fn = $SXMLParams['localroot'].'data/queries.log';
+        if (file_exists($fn)) {
+            $s = date('H:i:s') . "---------------------------------------------\n";
+            $s .= '[' . $query . ']';
+            if ($vars) { 
+                $s .= ' with ' . print_r($vars, true);
+            }
+            $s .= "\n\n";
+            $s .= print_r($result, true) . "\n";
+            $fp = fopen($SXMLParams['localroot'].'data/queries.log', 'a');
+            fwrite($fp, $s);
+            fclose($fp);
+        }
     }
     
     // Вытаскивает из базы первое поле заданного имени по заданным from, where и uses. Всегда возвращает строку
@@ -109,10 +137,13 @@
             $paramStringAfterWhere .= ' order by ('.$el->getAttribute('order-by').')';
         }
         
-        $restricted = $db->query('select '.$what.$paramStringBeforeWhere.' and ("sxml:visible-to" not null) '.$paramStringAfterWhere);
+        $restrictedQuery = 'select '.$what.$paramStringBeforeWhere.' and ("sxml:visible-to" not null) '.$paramStringAfterWhere;
+        $restricted = $db->query($restrictedQuery);
         if (!$restricted) {
+            logQuery($restrictedQuery, array(), $restricted);
             $restricted = 0;
         } else {
+            logQuery($restrictedQuery, array(), $restricted->fetchAll(PDO::FETCH_ASSOC));
             $restricted = $restricted->rowCount();
         }
         if ($restricted > 0 || ($ranges[0] === false && $ranges[1] === false && $ranges[2] === false && $ranges[3] === false)) {
@@ -148,14 +179,21 @@
 
         $table = $el->getAttribute('into');
         $data = getContainedData($el);
-        $r = getDB()->exec('create table if not exists "'.$table.'" ("sxml:item-id" integer primary key autoincrement, "'.join('", "', array_keys($data)).'", "sxml:editable-to", "sxml:visible-to", "sxml:open-to", "sxml:time", "sxml:user", "sxml:deleted")');
+        $createQuery = 'create table if not exists "'.$table.'" ("sxml:item-id" integer primary key autoincrement, "'.join('", "', array_keys($data)).'", "sxml:editable-to", "sxml:visible-to", "sxml:open-to", "sxml:time", "sxml:user", "sxml:deleted")';
+        $r = getDB()->exec($createQuery);
+        if ($r) {
+            logQuery($createQuery, array(), true);
+        } else {
+            logQuery($createQuery, array(), getDB()->errorInfo());
+        }
+        
         $queryText = 'insert into "'.$table.'" ("'.join('", "', array_keys($data)).'", "sxml:time", "sxml:user") values(('.join('), (', $data).'), \''.date(DATE_ATOM).'\', :user)';
         $queryVars = $el->getAttribute('uses').' user';
         $rq = processRawQuery($queryText, $queryVars);
         if (!$rq || strpos($rq, 'DB error') !== false) {
             $pragma = processRawQuery('pragma table_info("'.$table.'")');
-            print_r($pragma);
-            if ($pragma) {
+           // print_r($pragma);
+            if (is_array($pragma)) {
                 $actualColumns = array();
                 foreach($pragma as $i => $row) {
                     $actualColumns[] = $row[1];
@@ -217,6 +255,7 @@
 
         $query = getDB()->prepare($q);
         $vars = explode(' ', $uses);
+        $varList = array();
         if (!$query) {
             $err = getDB()->errorInfo();
             return 'DB error: '.$err[2];
@@ -224,10 +263,12 @@
         foreach($_SXML_VARS as $name => $value) {
             if (in_array($name, $vars)) {
                 $query->bindValue(':'.$name, $value);
+                $varList[$name] = $value;
             }
         }
         if ($query->execute()) {
             $fetch = $query->fetchAll(PDO::FETCH_ASSOC);
+            logQuery($q, $varList, $fetch);
             if (count($fetch) > 0) {
                 return $fetch;
             } else {
@@ -235,6 +276,7 @@
             }
         } else {
             $ei = $query->errorInfo();
+            logQuery($q, $varList, $ei);
             return 'DB error: ' . $ei[2];
         }
     }
