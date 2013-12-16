@@ -12,14 +12,16 @@
         global $SXML_DBHandler, $SXMLParams;
         if (!$SXML_DBHandler) {
             try {
-                $SXML_DBHandler = new PDO($SXMLParams['db']);
+                $SXML_DBHandler = new PDO('sqlite:'.$SXMLParams['db']);
             } catch(PDOException $e) {
-                $far = split(':', $SXMLParams['db']);
-                $f = $far[1];
-                if (!file_exists($f)) {
-                    fopen($f, 'w');
-                    fclose($f);
-                    $SXML_DBHandler = new PDO($SXMLParams['db']);                    
+                echo "sql exception!";
+                if (!file_exists($SXMLParams['data'])) {
+                    mkdir($SXMLParams['data']);
+                }
+                if (!file_exists($SXMLParams['db'])) {
+                    fopen($SXMLParams['db'], 'w');
+                    fclose($SXMLParams['db']);
+                    $SXML_DBHandler = new PDO('sqlite:'.$SXMLParams['db']);
                 }
             }
         }
@@ -103,6 +105,22 @@
         } else {
             return false;
         }
+    }
+    
+    // Добавляет новую колонку, если её ещё нет
+    function ensureColumns($table, $data) {
+        $pragma = processRawQuery('pragma table_info("'.$table.'")');
+        if (is_array($pragma)) {
+            $actualColumns = array();
+            foreach($pragma as $i => $row) {
+                $actualColumns[] = $row[1];
+            }
+            foreach($data as $key => $v) {
+                if (!in_array($key, $actualColumns)) {
+                    processRawQuery('alter table "'.$table.'" add column "'.$key.'"');
+                }
+            }
+        }    
     }
     
     ////////
@@ -189,23 +207,8 @@
         
         $queryText = 'insert into "'.$table.'" ("'.join('", "', array_keys($data)).'", "sxml:time", "sxml:user") values(('.join('), (', $data).'), \''.date(DATE_ATOM).'\', :user)';
         $queryVars = $el->getAttribute('uses').' user';
+        ensureColumns($table, $data);
         $rq = processRawQuery($queryText, $queryVars);
-        if (!$rq || strpos($rq, 'DB error') !== false) {
-            $pragma = processRawQuery('pragma table_info("'.$table.'")');
-           // print_r($pragma);
-            if (is_array($pragma)) {
-                $actualColumns = array();
-                foreach($pragma as $i => $row) {
-                    $actualColumns[] = $row[1];
-                }
-                foreach($data as $key => $v) {
-                    if (!in_array($key, $actualColumns)) {
-                        processRawQuery('alter table "'.$table.'" add column "'.$key.'"');
-                    }
-                }
-                $rq = processRawQuery($queryText, $queryVars);
-            }
-        }
         if ($rq) {
             $rq = simpleSelect('sxml:item-id', $table, 'rowid=last_insert_rowid();');
         }
@@ -239,12 +242,17 @@
         if (!isChangeAllowed($el)) {
             return 'Нельзя редактировать чужое :)';
         } else {
+            $table = $el->getAttribute('in');
             $data = getContainedData($el);
             $updateString = '';
             foreach ($data as $field => $content) {
                 $data[$field] = '"'.$field.'" = ('.$content.')';
             }
-            return processRawQuery('update '.$el->getAttribute('in').' set '.join(', ', $data).', "sxml:time" = \''.date(DATE_ATOM).'\' where ("sxml:item-id" = '.$el->getAttribute('id').')', $el->getAttribute('uses'));
+            $queryText = 'update '.$table.' set '.join(', ', $data).', "sxml:time" = \''.date(DATE_ATOM).'\' where ("sxml:item-id" = '.$el->getAttribute('id').')';
+            $queryVars = $el->getAttribute('uses');
+            ensureColumns($table, $data);
+            $rq = processRawQuery($queryText, $queryVars);
+            return $rq;
         }
 
     }
@@ -255,13 +263,15 @@
 
         $query = getDB()->prepare($q);
         $vars = explode(' ', $uses);
+        preg_match_all('/:(\w+)/', $q, $arr);
+        $requiredVars = $arr[1];
         $varList = array();
         if (!$query) {
             $err = getDB()->errorInfo();
             return 'DB error: '.$err[2];
         }
         foreach($_SXML_VARS as $name => $value) {
-            if (in_array($name, $vars)) {
+            if (in_array($name, $vars) && in_array($name, $requiredVars)) {
                 $query->bindValue(':'.$name, $value);
                 $varList[$name] = $value;
             }
@@ -277,7 +287,7 @@
         } else {
             $ei = $query->errorInfo();
             logQuery($q, $varList, $ei);
-            return 'DB error: ' . $ei[2];
+            return 'DB error while processing ' . $q . ': ' . $ei[2];
         }
     }
     
@@ -286,9 +296,9 @@
         global $_SXML_VARS;
    
         $doc = $el->ownerDocument;
-        if (is_array($result) || (is_numeric($result) || $result === true) && ($el->localName == 'select' || $el->hasAttribute('nook'))) { 
+        if (/*is_array($result) || (is_numeric($result) || $result === true) && */ $el->localName == 'select' || $el->hasAttribute('nook')) { 
             // Если это запрос не на действие, то в любом случае показываем нужный тег 
-            if ($el->hasAttribute('store')) {
+            if ($el->hasAttribute('store') && is_array($result)) {
                 $_SXML_VARS[$el->getAttribute('store')] = current($result[0]);
             } else {
                 if (!$el->hasAttribute('tag')) {
@@ -372,7 +382,7 @@
             $ok->setAttribute('last-insert-id', $result);
             return $ok;
         } else {
-            return createError($doc, 4);
+            return createError($doc, 4, 'Ошибка при запросе к базе данных: «'.$result.'»');
         }
     }
     
