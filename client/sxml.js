@@ -40,7 +40,7 @@ Observable.prototype = {
 
 };
 
-// Синглтон SXML
+// TODO Всё, блядь, нахуй переписать, ну пиздец же, ёбаный в рот!
 
 var SXML = new Observable();
 
@@ -343,6 +343,8 @@ $.extend(SXML, {
     
     update : function(index, test) {
     
+        console.log('update called', index, test);
+    
         // TODO: оптимизировать — удалять не только по родителям, но и по детям
         $.each(index, function(entityId, entity) {
             if (!test || test(entity)) {
@@ -397,6 +399,8 @@ $.extend(SXML, {
     
     updateBlock : function(entity, newRange) {
     
+        console.log('updateBlock called');
+    
         var ranges = SXML._getEntityNonStandardRanges(entity);
         if (newRange) {
             if (ranges) {
@@ -404,14 +408,18 @@ $.extend(SXML, {
             } else {
                 ranges = newRange;
             }
-        } 
+        }
         SXML._loadBlock(entity, ranges, function(doc) {
+            console.log('block finally transformed to', doc.documentElement.outerHTML, $(doc).find('.sxml'));
             $(doc)
                 .find('.sxml')
                 .each(function() {
                     newEntity = (new Function(this.getAttribute('ondblclick')))(); // FIXME: Очень плохо! 
                     if (newEntity && SXML._compareEntities(entity.sxml, newEntity.sxml)) {
+                        console.log('replacing');
                         SXML._replaceNode(entity.domElem, this);
+                    } else {
+                        console.log('not replacing');
                     }
                 });
         });
@@ -420,6 +428,8 @@ $.extend(SXML, {
     
     // pageLocator может быть строкой, либо массивом локаторов для ряда дочерних элементов, содержащим в элементе '' локатор нужной страницы
     _loadBlock : function(entity, pageLocator, onTransform) {
+    
+        console.log(arguments);
     
         var pageDescription,
             thisLocator;
@@ -452,8 +462,10 @@ $.extend(SXML, {
             dataType : 'xml',
             success : function(response) {
                 if (response.documentElement.tagName == 'html') {
+                    console.log('onTransform called upon ', response);
                     onTransform(response);
                 } else {
+                    console.log('applying transformation upon ', response);
                     SXML.applyTransformation(response, SXML.data.stylesheet, onTransform);
                 }
             },
@@ -482,6 +494,8 @@ $.extend(SXML, {
     
         // TODO: Здесь будем анализировать на предмет — а поменялось ли вообще что-то?
         
+        console.log(oldNode, newNode);
+        
         var doc = oldNode.ownerDocument,
             importedNode = doc.importNode(newNode, true);
         
@@ -495,10 +509,12 @@ $.extend(SXML, {
     applyTransformation : function(document, stylesheetName, success) {
         
         if (!SXML._stylesheets[stylesheetName]) {
+            console.log('loading stylesheet', stylesheetName);
             $.ajax(stylesheetName, {
                 method : 'get',
                 dataType : 'xml',
                 success : function(xml) {
+                    console.log('loaded stylesheet', stylesheetName);
                     SXML._stylesheets[stylesheetName] = xml;
                     success(SXML._doApplyTransformation(document, xml));
                 }
@@ -510,16 +526,24 @@ $.extend(SXML, {
     },
     
     _doApplyTransformation : function(xml, xsl) {
+    
+        console.log('applying transformation finally');
 
         if (window.ActiveXObject) { // IE
             var out = new ActiveXObject("Microsoft.XMLDOM");
             xml.transformNodeToObject(xsl, out);
+            console.log('returning ie\'s ', out);
             return out;
         } else if (window.XSLTProcessor) { // Mozilla, Firefox, Opera, Safari etc.
             var xsltProcessor = new XSLTProcessor();
             xsltProcessor.importStylesheet(xsl);
+            console.log('xsl is...');
+            console.log('xsl is ', xsl.documentElement.tagName);
+            console.log('xsl is ', xsl.documentElement);
+            var out = xsltProcessor.transformToDocument(xml);
+            console.log('returning othher\'s ', xml.documentElement.tagName, ' after ', xsl.documentElement.tagName, ' as ', out.documentElement.tagName, 'by', xsltProcessor);
             // TODO: хочу чтобы transformToFragment, но что делать с IE
-            return xsltProcessor.transformToDocument(xml); 
+            return xsltProcessor.transformToDocument(out); 
         }
 
     },
