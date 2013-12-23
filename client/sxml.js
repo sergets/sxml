@@ -56,7 +56,8 @@ $.extend(SXML, {
     },
     
     _inited : false,
-    _updateIndex : {},
+    _updateTagIndex : {},
+    _classIndex : {},
     _entities : {},
     _loginDependentIndex : {},
     _stylesheets : {},
@@ -132,8 +133,13 @@ $.extend(SXML, {
         SXML._entities[thisId] = entity;
         if (entity.sxml.update && entity.sxml.update.length > 0) {
             $.each(entity.sxml.update, function(i, tag) {
-                (SXML._updateIndex[tag] || (SXML._updateIndex[tag] = {}))[thisId] = entity;
+                (SXML._updateTagIndex[tag] || (SXML._updateTagIndex[tag] = {}))[thisId] = entity;
             });
+        }
+        if (entity.sxml['class'] && entity.sxml.item) {
+            SXML._classIndex[entity.sxml['class']] || (SXML._classIndex[entity.sxml['class']] = {});
+            SXML._classIndex[entity.sxml['class']][entity.sxml.item] || (SXML._classIndex[entity.sxml['class']][entity.sxml.item] = {});
+            SXML._classIndex[entity.sxml['class']][entity.sxml.item][thisId] = entity;
         }
         if (entity.sxml.loginDependent) {
             SXML._loginDependentIndex[thisId] = entity;
@@ -168,9 +174,12 @@ $.extend(SXML, {
         
         if (entity && entity.sxml.update) {
             $.each(entity.sxml.update, function(i, tag) {
-                delete SXML._updateIndex[tag][entityId];
+                delete SXML._updateTagIndex[tag][entityId];
             });
         }
+        if (entity.sxml['class'] && entity.sxml.item) {
+            delete SXML._classIndex[entity.sxml['class']][entity.sxml.item][entityId];
+        }        
         savingParent && $(savingParent).data('savedChildren', $(savingParent).data('savedChildren').not($(node)));
 
         if (entity.sxml.loginDependent) {
@@ -303,7 +312,8 @@ $.extend(SXML, {
                 }
                 var updateList = xml.getElementsByTagNameNS(SXML.NS, 'update');
                 $.each(updateList, function(i, updateItem) {
-                    updates.push({ tag : updateItem.getAttribute('tag') });
+                    updateItem.hasAttribute('tag') && updates.push({ tag : updateItem.getAttribute('tag') });
+                    updateItem.hasAttribute('class') && updates.push({ 'class' : updateItem.getAttribute('class'), item : updateItem.getAttribute('item') });
                 });
             } else if (xml.documentElement.localName == 'error' && xml.documentElement.namespaceURI == SXML.NS) {
                 isOK = false;
@@ -319,7 +329,8 @@ $.extend(SXML, {
         }
         if (isOK) {
             $.each(updates, function(i, up) {
-                SXML._updateIndex[up.tag] && SXML.update(SXML._updateIndex[up.tag]);
+                up.tag && SXML._updateTagIndex[up.tag] && SXML.update(SXML._updateTagIndex[up.tag]);
+                up['class'] && SXML._classIndex[up['class']] && SXML._classIndex[up['class']][up.item] && SXML.update(SXML._classIndex[up['class']][up.item]);
             });
             SXML.trigger('action');
             success && success(returnValue);
