@@ -93,7 +93,8 @@ $.extend(SXML, {
     
     registerChildren : function(node) {
     
-        $(node).find('.sxml').addBack('.sxml').each(function() {
+        var children = $(node).find('.sxml').addBack('.sxml');
+        children.each(function() {
             SXML._registerEntity(this);
         });
     
@@ -101,7 +102,7 @@ $.extend(SXML, {
     
     unregisterChildren : function(node) {
 
-        var children = $(node).find('.sxml').addBack('.sxml');
+        var children = $(node).data('savedChildren') || $(node).find('.sxml').addBack('.sxml');
         Array.prototype.reverse.call(children);
         children.each(function() {
             SXML._unregisterEntity(this);
@@ -138,6 +139,13 @@ $.extend(SXML, {
             SXML._loginDependentIndex[thisId] = entity;
         }
         
+        // Запомнить детей, если просим
+        if (entity.sxml.detachableChildren) {
+            var children = $(node).find('.sxml').addBack('.sxml');
+            $(node).data('savedChildren', children);
+            children.data('savingParent', node);
+        }
+        
         var pagers = $.grep($(node).find('.sxml_pager-vk-up'), function(i) {
             return $(i).closest('.sxml')[0] == node
         });
@@ -155,12 +163,16 @@ $.extend(SXML, {
     _unregisterEntity : function(node) {
     
         var entityId = $(node).data('sxmlEntityId'),
-            entity = SXML._entities[entityId];
+            entity = SXML._entities[entityId],
+            savingParent = $(node).data('savingParent');
+        
         if (entity && entity.sxml.update) {
             $.each(entity.sxml.update, function(i, tag) {
                 delete SXML._updateIndex[tag][entityId];
             });
         }
+        savingParent && $(savingParent).data('savedChildren', $(savingParent).data('savedChildren').not($(node)));
+
         if (entity.sxml.loginDependent) {
             delete SXML._loginDependentIndex[entityId];
         }
@@ -203,6 +215,7 @@ $.extend(SXML, {
                 }
             }
         }
+
         context.on(event, handler);
 
     },
@@ -219,15 +232,22 @@ $.extend(SXML, {
 
     },
 
-    
-    exec : function(url, action, params) {
+    exec : function(url, action, params, success, error, ctx) {
     
         if (typeof action !== 'string') { // Если не указан урл, то значит запрос к самому себе 
+            ctx = error,
+            error = success, 
+            success = params,
             params = action,
             action = url,
             url = SXML.data.source;
-        };
-                
+        }
+
+        if (error && !$.isFunction(error)) { // Если передана только одна функция, то это success.
+            ctx = error;
+            error = undefined;
+        }
+
         $.ajax(url, {
             type : 'POST',
             data : $.extend(params, {
@@ -237,23 +257,25 @@ $.extend(SXML, {
             }),
             dataType : 'xml',
             success : function(res) { 
-                SXML._onExec(action, res)
+                SXML._onExec(action, res, success, error, ctx)
             },
             error : function(res) {
-                SXML._onError(action, arguments)
+                SXML._onError(action, arguments, error, ctx)
             }
         })
     
     },
     
-    _onExec : function(action, res) {
-    
+    _onExec : function(action, res, success, error, ctx) {
+
         SXML.processResponse(res, function(returnValue) {
+            success && success.call(ctx || this, returnValue);
             SXML.trigger('actioncomplete', {
                 action : action,
                 returned : returnValue
             });
         }, function() {
+            error && error.call(ctx || this);        
             SXML.trigger('actionerror', {
                 action : action
             });
@@ -261,8 +283,9 @@ $.extend(SXML, {
     
     },
     
-    _onError : function(action, args) {
-    
+    _onError : function(action, args, error, ctx) {
+
+        error && error.call(ctx || this);          
         SXML.Notifier.error('Не удалось выполнить действие «'+ action +'». Ошибка — ' + args[2]);
     
     },
