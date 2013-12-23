@@ -78,7 +78,7 @@
             if ($cols->item($i)->tagName == 'col') {
                 $name = $cols->item($i)->getAttribute('name');
             } elseif ($cols->item($i)->namespaceURI == $SXMLParams['ns']) {
-                $name = 'sxml/' . $cols->item($i)->tagName;
+                $name = 'sxml:' . $cols->item($i)->localName;
             } else {
                 $name = $cols->item($i)->tagName;
             }
@@ -89,8 +89,17 @@
     
     // Проверяет автора заданной строчки таблицы 
     function isChangeAllowed($el) {
+        global $_SXML_VARS;
         $table = $el->hasAttribute('from') ? $el->getAttribute('from') : $el->getAttribute('in');
-        $allowed =  $el->hasAttribute('also-open-to') ? $el->getAttribute('also-open-to') : '';
+        if ($el->hasAttribute('open-to')) {
+            $allowed =  $el->getAttribute('open-to');
+        } elseif ($el->hasAttribute('open-as')) {
+            $allowed =  $_SXML_VARS[$el->getAttribute('open-as')];
+        } elseif ($el->hasAttribute('open-as-from')) {
+            $allowed = simpleSelect('sxml:open-to', $el->getAttribute('open-as-from'), $el->hasAttribute('open-as-where') ? $el->getAttribute('open-as-where') : null, $el->hasAttribute('open-as-uses') ? $el->getAttribute('open-as-uses') : null);
+        } else {
+            $allowed = '';
+        }
         $item = $el->getAttribute('id');
         $uses = $el->hasAttribute('uses') ? $el->getAttribute('uses') : '';
         
@@ -197,7 +206,8 @@
 
         $table = $el->getAttribute('into');
         $data = getContainedData($el);
-        $createQuery = 'create table if not exists "'.$table.'" ("sxml:item-id" integer primary key autoincrement, "'.join('", "', array_keys($data)).'", "sxml:editable-to", "sxml:visible-to", "sxml:open-to", "sxml:time", "sxml:user", "sxml:deleted")';
+        $dataKeys = array_unique(array_merge(array_keys($data), array("sxml:editable-to", "sxml:visible-to", "sxml:open-to", "sxml:time", "sxml:user", "sxml:deleted")));
+        $createQuery = 'create table if not exists "'.$table.'" ("sxml:item-id" integer primary key autoincrement, "'.join('", "', $dataKeys) .'")';
         $r = getDB()->exec($createQuery);
         if ($r) {
             logQuery($createQuery, array(), true);
@@ -216,8 +226,8 @@
     }
     
     // Обрабатывает инструкцию <sxml:delete/> - допиленный DELETE
-    // <sxml:delete from="" id="" also-open-to="" uses=""/>
-    // also-open-to - кому можно, кроме автора. Проставляет 'deleted' в поле deleted - чтобы при обновлении можно было заметить, что что-то удалилось
+    // <sxml:delete from="" id="" open-to="" uses=""/>
+    // open-to - кому можно, кроме автора. Проставляет 'deleted' в поле deleted - чтобы при обновлении можно было заметить, что что-то удалилось
     function processDelete($el) {
     
         if (!$el->hasAttribute('from') || !$el->hasAttribute('id')) {
@@ -232,8 +242,8 @@
     }
     
     // Обрабатывает инструкцию <sxml:edit/> - допиленный UPDATE
-    // <sxml:edit in="" id="" also-open-to="" uses="">data</sxml:edit>
-    // also-open-to - кому можно, кроме автора. Проставляет 'deleted' в поле deleted - чтобы при обновлении можно было заметить, что что-то удалилось
+    // <sxml:edit in="" id="" open-to="" uses="">data</sxml:edit>
+    // open-to - кому можно, кроме автора. Проставляет 'deleted' в поле deleted - чтобы при обновлении можно было заметить, что что-то удалилось
     function processEdit($el) {
     
         if (!$el->hasAttribute('in') || !$el->hasAttribute('id')) {
@@ -319,7 +329,7 @@
                 }
                 for ($i = 0; $i < $el->attributes->length; $i++) {
                     $child = $el->attributes->item($i);
-                    if (!in_array($child->localName, array('from', 'where', 'what', 'into', 'order-by', 'what', 'tag', 'entry', 'attrs', 'ignore', 'uses', 'store', 'also-open-to'))) {
+                    if (!in_array($child->localName, array('from', 'where', 'what', 'into', 'order-by', 'what', 'tag', 'entry', 'attrs', 'ignore', 'uses', 'store', 'open-to', 'open-'))) {
                         $res->setAttributeNS($child->namespaceURI, $child->nodeName, $child->nodeValue);
                     }
                 }

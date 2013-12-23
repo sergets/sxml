@@ -185,9 +185,7 @@
             <m n="31">декабря</m>
         </xsl:variable>
         <xsl:choose>
-            <xsl:when test="$now-m = $m and $now-y = $y and $now-d = $d">
-                сегодня,
-            </xsl:when>
+            <xsl:when test="$now-m = $m and $now-y = $y and $now-d = $d">сегодня, </xsl:when>
             <xsl:when test="
                 (
                     ($now-m = $m + 1) and
@@ -204,9 +202,7 @@
                     ($now-m = $m) and
                     ($now-y = $y) and
                     ($now-d = $d + 1)
-                )">
-                вчера,
-            </xsl:when>
+                )">вчера, </xsl:when>
             <xsl:otherwise>
                 <xsl:value-of select="$d"/><xsl:text> </xsl:text><xsl:value-of select="exsl:node-set($months-raw)/*[$m]"/><xsl:if test="not($now-y = $y)">
                     <xsl:text> </xsl:text><xsl:value-of select="$y"/> г.</xsl:if>,

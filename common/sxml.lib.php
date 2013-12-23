@@ -441,7 +441,6 @@
         } elseif ($currentAction->hasAttribute('open-as-from') && !stringPermits(simpleSelect('sxml:open-to', $currentAction->getAttribute('open-as-from'), $currentAction->hasAttribute('open-as-where') ? $currentAction->getAttribute('open-as-where') : null, $currentAction->hasAttribute('open-as-uses') ? $currentAction->getAttribute('open-as-uses') : null))) {
             $actionResult = createError($doc, 6); // Запрещено по результатам запроса из базы
         } else {
-        
             getDB()->beginTransaction();
             $_SXML['inTransaction'] = true;
             $failed = false;
