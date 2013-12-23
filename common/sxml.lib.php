@@ -523,6 +523,20 @@
                         $el->parentNode->replaceChild($textNode, $el);
                         return $textNode;
                     break;
+                    case 'attribute':
+                        $children = getAllChildElements($el);
+                        for ($i = 0; $i < $children->length; $i++) {
+                            if (processElement($children->item($i)) === false) {
+                                break;
+                            }
+                        }
+                        if (strpos($el->getAttribute('name'), 'sxml:') === 0) {
+                            $el->parentNode->setAttributeNS($SXMLParams['ns'], substr($el->getAttribute('name'), 5), $el->textContent);
+                        } else {
+                            $el->parentNode->setAttribute($el->getAttribute('name'), $el->textContent);
+                        }
+                        $el->parentNode->removeChild($el);
+                        return null;
                     default:
                         if (in_array($el->localName, $SXMLParams['queries'])) {
                             $block = processQuery($el);

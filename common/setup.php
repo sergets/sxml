@@ -25,6 +25,7 @@
 
             'handlers' => array(
                 'xml' => '../handlers/xml.php',
+                'xsl' => '../handlers/xsl.php',
                 'xml.php' => '../handlers/xml.php.php',
                 'xcss' => '../handlers/css.php',
                 'jpg' => '../handlers/jpeg.php',
