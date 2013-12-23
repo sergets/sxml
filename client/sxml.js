@@ -111,7 +111,7 @@ $.extend(SXML, {
     
     },
     
-    _getEntity : function(node) {
+    getEntity : function(node) {
     
         return SXML._entities[$(node).data('sxmlEntityId')];
     
@@ -724,10 +724,14 @@ SXML.Notifier = {
             message = $('<div/>')
                         .addClass('sxml_message')
                         .addClass((options && options['class']) || '')
-                        .html(text)
                         .click(function() {
                             SXML.Notifier.close(mark);
                         });
+        if (typeof text === 'string') {
+            message.html(text);
+        } else {
+            message.append(text);
+        }
         if (SXML.Notifier._messages[mark]) {
             clearTimeout(SXML.Notifier._messages[mark].timeout);
             SXML.Notifier._messages[mark].message.replaceWith(message);
