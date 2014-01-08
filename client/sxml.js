@@ -513,6 +513,8 @@ $.extend(SXML, {
                 (oldEntity['class'] && oldEntity.item && 
                     newEntity['class'] == oldEntity['class'] &&
                     newEntity.item == oldEntity.item)
+            ) && (
+                (!newEntity.role && !oldEntity.role) || (newEntity.role === oldEntity.role)
             )
         );
     

@@ -437,33 +437,55 @@
     </xsl:template>
         
     <xsl:template match="*" mode="sxml">
-        <xsl:variable name="js"><xsl:apply-templates select="." mode="sxml:js"/></xsl:variable>
-        <xsl:variable name="extras"><xsl:apply-templates select="." mode="sxml:extras"/></xsl:variable>
-        <xsl:variable name="class"><xsl:apply-templates select="." mode="sxml:class"/></xsl:variable>
-        <xsl:attribute name="ondblclick">return { <xsl:if test="not($js = '')"><xsl:value-of select="concat($js, ', ')"/></xsl:if>sxml: {
-            <xsl:if test="@sxml:class">class : '<xsl:apply-templates mode="sxml:quote" select="@sxml:class"/>', </xsl:if>
-            <xsl:if test="@sxml:item-id">item : '<xsl:apply-templates mode="sxml:quote" select="@sxml:item-id"/>', </xsl:if>
-            <xsl:if test="@sxml:id">id : '<xsl:apply-templates mode="sxml:quote" select="@sxml:id"/>', </xsl:if>
-            <xsl:if test="@sxml:id or (@sxml:class and @sxml:item-id)">addressable : true, </xsl:if>
-            <xsl:if test="@sxml:login-dependent">loginDependent : true,</xsl:if>
-            <xsl:if test="@sxml:update">update : [ '<xsl:call-template name="sxml:replace">
-                <xsl:with-param name="haystack" select="@sxml:update"/>
+        <xsl:call-template name="sxml:attrs">
+            <xsl:with-param name="node" select="exsl:node-set(.)"/>
+        </xsl:call-template>
+    </xsl:template>
+    
+    <xsl:template name="sxml:attrs">
+        <xsl:param name="node"/>
+        <xsl:param name="role"/>
+        <xsl:param name="js"/>
+        <xsl:param name="extras"/>
+        <xsl:param name="class"/>
+        
+        <xsl:variable name="_js"><xsl:choose>
+            <xsl:when test="$js"><xsl:value-of select="$js"/></xsl:when>
+            <xsl:otherwise><xsl:apply-templates select="$node" mode="sxml:js"/></xsl:otherwise>
+        </xsl:choose></xsl:variable>
+        <xsl:variable name="_extras"><xsl:choose>
+            <xsl:when test="$extras"><xsl:value-of select="$extras"/></xsl:when>
+            <xsl:otherwise><xsl:apply-templates select="$node" mode="sxml:extras"/></xsl:otherwise>
+        </xsl:choose></xsl:variable>
+        <xsl:variable name="_class"><xsl:choose>
+            <xsl:when test="$class"><xsl:value-of select="$class"/></xsl:when>
+            <xsl:otherwise><xsl:apply-templates select="$node" mode="sxml:class"/></xsl:otherwise>
+        </xsl:choose></xsl:variable>
+        <xsl:attribute name="ondblclick">return { <xsl:if test="not($_js = '')"><xsl:value-of select="concat($_js, ', ')"/></xsl:if>sxml: {
+            <xsl:if test="$node/@sxml:class">class : '<xsl:apply-templates mode="sxml:quote" select="$node/@sxml:class"/>', </xsl:if>
+            <xsl:if test="$node/@sxml:item-id">item : '<xsl:apply-templates mode="sxml:quote" select="$node/@sxml:item-id"/>', </xsl:if>
+            <xsl:if test="$node/@sxml:id">id : '<xsl:apply-templates mode="sxml:quote" select="$node/@sxml:id"/>', </xsl:if>
+            <xsl:if test="$node/@sxml:id or ($node/@sxml:class and $node/@sxml:item-id)">addressable : true, </xsl:if>
+            <xsl:if test="$node/@sxml:login-dependent">loginDependent : true,</xsl:if>
+            <xsl:if test="$node/@sxml:update">update : [ '<xsl:call-template name="sxml:replace">
+                <xsl:with-param name="haystack" select="$node/@sxml:update"/>
                 <xsl:with-param name="needle" select="' '"/>
                 <xsl:with-param name="replace">', '</xsl:with-param>
                 </xsl:call-template>' ], </xsl:if>
-            <xsl:if test="@sxml:enumerable">
+            <xsl:if test="$node/@sxml:enumerable">
                 enumerable : true,
-                total : '<xsl:apply-templates mode="sxml:quote" select="@sxml:total"/>',
-                first : '<xsl:apply-templates mode="sxml:quote" select="@sxml:first"/>',
-                last : '<xsl:apply-templates mode="sxml:quote" select="@sxml:last"/>',
-                <xsl:if test="@sxml:range">range : '<xsl:apply-templates mode="sxml:quote" select="@sxml:range"/>', </xsl:if>
-                <xsl:if test="@sxml:default-range">defaultRange : '<xsl:apply-templates mode="sxml:quote" select="@sxml:default-range"/>', </xsl:if>
+                total : '<xsl:apply-templates mode="sxml:quote" select="$node/@sxml:total"/>',
+                first : '<xsl:apply-templates mode="sxml:quote" select="$node/@sxml:first"/>',
+                last : '<xsl:apply-templates mode="sxml:quote" select="$node/@sxml:last"/>',
+                <xsl:if test="$node/@sxml:range">range : '<xsl:apply-templates mode="sxml:quote" select="$node/@sxml:range"/>', </xsl:if>
+                <xsl:if test="$node/@sxml:default-range">defaultRange : '<xsl:apply-templates mode="sxml:quote" select="$node/@sxml:default-range"/>', </xsl:if>
             </xsl:if>
-            source : '<xsl:apply-templates mode="sxml:quote" select="ancestor-or-self::*[@sxml:source][1]/@sxml:source"/>'
-            <xsl:if test="not($extras = '')">,<xsl:value-of select="$extras"/></xsl:if>
+            <xsl:if test="$role">role : '<xsl:call-template name="sxml:quote"><xsl:with-param name="v" select="$role"/></xsl:call-template>',</xsl:if>
+            source : '<xsl:apply-templates mode="sxml:quote" select="$node/ancestor-or-self::*[@sxml:source][1]/@sxml:source"/>'
+            <xsl:if test="not($_extras = '')">,<xsl:value-of select="$_extras"/></xsl:if>
         } }</xsl:attribute>
-        <xsl:attribute name="class"><xsl:if test="not($class = '')"><xsl:value-of select="concat($class, ' ')"/></xsl:if>sxml</xsl:attribute>
-    </xsl:template>
+        <xsl:attribute name="class"><xsl:if test="not($_class = '')"><xsl:value-of select="concat($_class, ' ')"/></xsl:if>sxml</xsl:attribute>
+    </xsl:template>    
     
     <xsl:template match="*" mode="sxml:js"/>
     <xsl:template match="*" mode="sxml:class"/>
