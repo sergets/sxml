@@ -160,7 +160,7 @@
         header('HTTP/1.1 200 OK');
         header('Content-type: text/html');
         ?><html><body><script type="text/javascript">
-            (window.opener || window.top).SXML.trigger('window', {
+            (window.opener || window.top)._sxml.trigger('window', {
                 winId : window.name,
                 isOK : true,
                 user : '<?=addslashes($username)?>',
@@ -184,7 +184,7 @@
         header('HTTP/1.1 200 OK');
         header('Content-type: text/html');
         ?><html><script type="text/javascript">
-            (window.opener || window.top).SXML.trigger('window', {
+            (window.opener || window.top)._sxml.trigger('window', {
                 winId : window.name,
                 isOK : false,
                 errorMessage : '<?=addslashes($message)?>'

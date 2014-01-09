@@ -70,23 +70,26 @@
             <body>
                 <xsl:attribute name="onload"> <!-- Костыль: при xsl:output method="html" в FF не экранируются амперсанды внутри тега script, а внутри атрибутов экранируются -->
                     return function() {
-                        SXML.init({<xsl:apply-templates mode="sxml:quote" select="@sxml:item-id"/>
-                            user : '<xsl:apply-templates mode="sxml:quote" select="/*/sxml:data/sxml:user"/>',
-                            groups : [ <xsl:for-each select="/*/sxml:data/sxml:my-groups/sxml:group">
-                                <xsl:if test="position() &gt; 1">, </xsl:if>'<xsl:apply-templates mode="sxml:quote" select="@id"/>'
-                            </xsl:for-each> ],
-                            token : '<xsl:apply-templates mode="sxml:quote" select="/*/@sxml:token"/>',
-                            <xsl:if test="/*/@sxml:remembered-provider">rememberedProvider : '<xsl:apply-templates mode="sxml:quote" select="/*/@sxml:remembered-provider"/>',</xsl:if>
-                            users : {
-                                <xsl:for-each select="/*/sxml:data/sxml:found-users/sxml:user">
-                                    <xsl:if test="position() &gt; 1">, </xsl:if>
-                                    '<xsl:apply-templates mode="sxml:quote" select="@id"/>' : {
-                                        name : '<xsl:apply-templates mode="sxml:quote" select="@name"/>', link : '<xsl:apply-templates mode="sxml:quote" select="@link"/>'
-                                    }
-                                </xsl:for-each>
-                            },
-                            source : '<xsl:apply-templates mode="sxml:quote" select="/*/@sxml:source"/>',
-                            stylesheet : '<xsl:value-of select="substring-before(substring-after(/processing-instruction('xml-stylesheet'), 'href=&quot;'), '&quot;')"/>'
+                        require(['sxml/sxml'], function(sxml) {
+                            sxml.setup({<xsl:apply-templates mode="sxml:quote" select="@sxml:item-id"/>
+                                root : '<xsl:call-template name="sxml:quote"><xsl:with-param name="v" select="$sxml-root-from-xml"/></xsl:call-template>',
+                                user : '<xsl:apply-templates mode="sxml:quote" select="/*/sxml:data/sxml:user"/>',
+                                groups : [ <xsl:for-each select="/*/sxml:data/sxml:my-groups/sxml:group">
+                                    <xsl:if test="position() &gt; 1">, </xsl:if>'<xsl:apply-templates mode="sxml:quote" select="@id"/>'
+                                </xsl:for-each> ],
+                                token : '<xsl:apply-templates mode="sxml:quote" select="/*/@sxml:token"/>',
+                                <xsl:if test="/*/@sxml:remembered-provider">rememberedProvider : '<xsl:apply-templates mode="sxml:quote" select="/*/@sxml:remembered-provider"/>',</xsl:if>
+                                users : {
+                                    <xsl:for-each select="/*/sxml:data/sxml:found-users/sxml:user">
+                                        <xsl:if test="position() &gt; 1">, </xsl:if>
+                                        '<xsl:apply-templates mode="sxml:quote" select="@id"/>' : {
+                                            name : '<xsl:apply-templates mode="sxml:quote" select="@name"/>', link : '<xsl:apply-templates mode="sxml:quote" select="@link"/>'
+                                        }
+                                    </xsl:for-each>
+                                },
+                                source : '<xsl:apply-templates mode="sxml:quote" select="/*/@sxml:source"/>',
+                                stylesheet : '<xsl:value-of select="substring-before(substring-after(/processing-instruction('xml-stylesheet'), 'href=&quot;'), '&quot;')"/>'
+                            });
                         });
                     }
                 </xsl:attribute>
@@ -118,15 +121,30 @@
                     </xsl:otherwise>
                 </xsl:choose>
                 <div id="sxml_notifier"/>
+                
+                <script type="text/javascript">
+                    require = {
+                        paths : {
+                            'jquery': '//yandex.st/jquery/2.0.0/jquery',
+                            'sxml' : '<xsl:call-template name="sxml:quote"><xsl:with-param name="v" select="concat($sxml-root-from-xml, '/client/js')"/></xsl:call-template>'
+                        }
+                    };
+                </script>
 
-                <script type="text/javascript" src="//yandex.st/jquery/1.9.0/jquery.js"></script>
-                <script type="text/javascript" src="{concat($sxml-root-from-xml, '/client/sxml.js')}"></script>
-
+                <script type="text/javascript" src="//yandex.st/jquery/2.0.0/jquery.js"></script>
+                <script type="text/javascript" src="{concat($sxml-root-from-xml, '/client/libs/require.js')}"></script>
+                
                 <xsl:for-each select="exsl:node-set($scripts)/*">
                     <xsl:choose>
-                        <xsl:when test="@relative">
+                        <xsl:when test="@relative"><!-- and not(@requirejs)"-->
                             <script type="text/javascript" src="{concat($root-from-xml, .)}"></script>
                         </xsl:when>
+                        <!--xsl:when test="@relative and @requirejs">
+                            <script type="text/javascript" data-main="{concat($root-from-xml, .)}" src="{concat($sxml-root-from-xml, '/client/libs/require.js')}"></script>
+                        </xsl:when>
+                        <xsl:when test="@requirejs">
+                            <script type="text/javascript" data-main="{.}" src="{concat($sxml-root-from-xml, '/client/libs/require.js')}"></script>
+                        </xsl:when-->
                         <xsl:otherwise>
                             <script type="text/javascript" src="{.}"></script>
                         </xsl:otherwise>
