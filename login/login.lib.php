@@ -1,10 +1,13 @@
 <?
     require_once('../common/db.lib.php');
     
-    // Èíèöèàëèçèàöèÿ
+    // Ð˜Ð½Ð¸Ñ†Ð¸Ð°Ð»Ð¸Ð·Ð¸Ð°Ñ†Ð¸Ñ
     getDB()->query('create table if not exists "sxml:users" ("provider", "user" unique, "name", "link", "userpic", "sex")');
     getDB()->query('create table if not exists "sxml:membership" ("user", "group")');
     getDB()->query('create table if not exists "sxml:groups" ("group" unique, "name")');
+    getDB()->query('insert or replace into "sxml:groups" ("group", "name") values (\'\', \'Ð’ÑÐµ Ð·Ð°Ð»Ð¾Ð³Ð¸Ð½ÐµÐ½Ð½Ñ‹Ðµ\')');
+
+    
     // //
     
     function doLogin($user, $hash) {
@@ -70,7 +73,7 @@
 
     }
     
-    // Âîçâðàùàåò ñâîéñòâà ïîëüçîâàòåëÿ â âèäå õåøà
+    // Ð’Ð¾Ð·Ð²Ñ€Ð°Ñ‰Ð°ÐµÑ‚ ÑÐ²Ð¾Ð¹ÑÑ‚Ð²Ð° Ð¿Ð¾Ð»ÑŒÐ·Ð¾Ð²Ð°Ñ‚ÐµÐ»Ñ Ð² Ð²Ð¸Ð´Ðµ Ñ…ÐµÑˆÐ°
     function getUser($userid) {
     
         $query = getDB()->prepare('select * from "sxml:users" where ("user" = :user)');
@@ -84,5 +87,55 @@
         }
         
     }
+    
+    // Ð’Ð¾Ð·Ð²Ñ€Ð°Ñ‰Ð°ÐµÑ‚ ÑÐ¿Ð¸ÑÐ¾Ðº
+    function findUsers($str) {
 
+        $query = getDB()->prepare('select * from "sxml:users" where ("name" like "%" || :str || "%")');
+        if (!$query) return array();
+        $query->execute(array( 'str' => $str ));
+        $result = $query->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
+
+    }
+    
+    // Ð’Ð¾Ð·Ð²Ñ€Ð°Ñ‰Ð°ÐµÑ‚ ÑÐ¿Ð¸ÑÐ¾Ðº
+    function findGroups($str) {
+
+        $query = getDB()->prepare('select * from "sxml:groups" where ("name" like "%" || :str || "%")');
+        if (!$query) return array();
+        $query->execute(array( 'str' => $str ));
+        $result = $query->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
+
+    }
+    
+
+    /////////////
+    
+    function redirect($url) {
+        header('HTTP/1.1 302 Found');
+        header('Location: '.$url);
+    }
+    
+    function requestJSON($url, $post = null) {
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_URL, $url);
+        curl_setopt($curl, CURLOPT_HEADER, 0);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 0);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0);
+
+        if (is_array($post)) {
+            curl_setopt($curl, CURLOPT_POST, $post);
+        }
+        $r = curl_exec($curl);
+        if (!$r) {
+            error(curl_error($curl));
+            return false;
+        } else {
+            return json_decode($r, true);
+        }
+    }    
+    
 ?>

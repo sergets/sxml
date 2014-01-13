@@ -156,7 +156,19 @@
     }
 
     // Проверяет, есть ли пользователь в списке $list
-    function isPermitted($list) {
+    function isPermitted($list, $type = 'visible-to') {
+        // Ищем в списке правила вида "=table/rowid", которые надо пробивать по базе данных и искать в ней поля open-to
+        foreach ($list as $i => $elem) {
+            if (substr($elem, 0, 1) === '=') {
+                unset($list[$i]);
+                $splt = explode('/', substr($elem, 1));
+                $dbPermList = requestPermissionsFromDB($splt[0], $splt[1], $type);
+                foreach ($dbPermList as $j => $nelem) {
+                    $list[] = $nelem;
+                }
+            }
+        }
+    
         global $_SXML;
         if (!isset($_SXML['user'])) {
             return false;
@@ -193,7 +205,7 @@
                     }
                 }
             }
-            return isPermitted($list);
+            return isPermitted($list, 'visible-to');
         } else {
             return true;
         }
@@ -204,15 +216,19 @@
         if (!hasSXMLAttr($el, 'visible-to')) {
             return true;
         } else {
-            return stringPermits(getSXMLAttr($el, 'visible-to'));
+            return stringPermits(getSXMLAttr($el, 'visible-to'), 'visible-to');
         }
     }
     
-    function stringPermits($str) {
+    function stringPermits($str, $type = 'visible-to') {
+        //echo('string permits: "'. $str. '" for '.$type.'?'."\n");
         if (rtrim($str) === '') {
+            //echo('yes, as there\'s nobody'."\n");
             return true;
         } else {
-            return isPermitted(explode(' ', $str));
+            $p = isPermitted(explode(' ', $str), $type);
+            //echo(($p?'yes':'no').', as there was somebody'."\n");
+            return $p;
         }
 
     }
@@ -406,6 +422,15 @@
                     return null;
                 }
             }
+        } else if ($var->hasAttribute('name')) { // Переменная прямо в тексте
+            $children = getAllChildElements($var);
+            for ($i = 0; $i < $children->length; $i++) {
+                if (processElement($children->item($i)) === false) {
+                    break;
+                }
+            }
+            $_SXML_VARS[$var->getAttribute('name')] = $var->textContent;
+            $var->parentNode->removeChild($var);
         }
     }
     
@@ -431,15 +456,18 @@
         global $_SXML, $SXMLParams, $_SXML_VARS;
         
         $doc = $currentAction->ownerDocument;
+        // Более правильно — с префиксом: sxml:open-to, а не open-to, но для совместимости работают оба варианта. // TODO сделать только правильный
+        $openTo = hasSXMLAttr($currentAction, 'open-to')? getSXMLAttr($currentAction, 'open-to') : ($currentAction->hasAttribute('open-to')? $currentAction->getAttribute('open-to') : false);
+        $openAs = hasSXMLAttr($currentAction, 'open-as')? getSXMLAttr($currentAction, 'open-as') : ($currentAction->hasAttribute('open-as')? $currentAction->getAttribute('open-as') : false);
         
         if (!isInheritedlyVisible($currentAction)) {
             $actionResult = createError($doc, 6); // Или лучше даже 7, чтобы никто не догадался о невидимом действии 
-        } elseif ($currentAction->hasAttribute('open-to') && !stringPermits($currentAction->getAttribute('open-to'))) {
+        } elseif ($openTo !== false && !stringPermits($openTo, 'open-to')) {
             $actionResult = createError($doc, 6); // Явно запрещено прямо в файле
-        } elseif ($currentAction->hasAttribute('open-as') && !stringPermits($_SXML_VARS[$currentAction->getAttribute('open-as')])) {
+        } elseif ($openAs !== false && !stringPermits($_SXML_VARS[$openAs], 'open-to')) {
             $actionResult = createError($doc, 6); // Запрещено согласно значению переменной
-        } elseif ($currentAction->hasAttribute('open-as-from') && !stringPermits(simpleSelect('sxml:open-to', $currentAction->getAttribute('open-as-from'), $currentAction->hasAttribute('open-as-where') ? $currentAction->getAttribute('open-as-where') : null, $currentAction->hasAttribute('open-as-uses') ? $currentAction->getAttribute('open-as-uses') : null))) {
-            $actionResult = createError($doc, 6); // Запрещено по результатам запроса из базы
+/*        } elseif ($currentAction->hasAttribute('open-as-from') && !stringPermits(simpleSelect('sxml:open-to', $currentAction->getAttribute('open-as-from'), $currentAction->hasAttribute('open-as-where') ? $currentAction->getAttribute('open-as-where') : null, $currentAction->hasAttribute('open-as-uses') ? $currentAction->getAttribute('open-as-uses') : null), 'open-to')) {
+            $actionResult = createError($doc, 6); // Запрещено по результатам запроса из базы*/ // Вырезано в пользу open-as + select
         } else {
             getDB()->beginTransaction();
             $_SXML['inTransaction'] = true;
@@ -490,6 +518,24 @@
         return ($_SXML['laconic']? false : $currentAction);
     }
     
+    // К атрибутам прав доступа, которые вычисляются на сервере (sxml:open-to="=table/id", sxml:open-as="var") дописывает понятный для интерфейса флажок "sxml:open-to-me". Бесполезные для интерфейса "sxml:open-as" и "sxml:visible-as" убирает.
+    // sxml:visible-to-me не имеет смысла, и так понятно, показан он мне или нет. Значения sxml:open-to и sxml:visible-to нужно сохранить неизменными (включая =table/id) для полей ввода в интерфейсе.
+    function interfacizeRights($el) {
+        global $_SXML_VARS;
+        if (hasSXMLAttr($el, 'open-to')) {
+            //echo "attribute open-to in fact: ".getSXMLAttr($el, 'open-to')."\n";
+            setSXMLAttr($el, 'open-to-me', !!stringPermits(getSXMLAttr($el, 'open-to'), 'open-to'));
+        }
+        if (hasSXMLAttr($el, 'open-as')) {
+            //echo "attribute open-as in fact: ".getSXMLAttr($el, 'open-as')." = ".$_SXML_VARS[getSXMLAttr($el, 'open-as')]."\n";        
+            setSXMLAttr($el, 'open-to-me', !!stringPermits($_SXML_VARS[getSXMLAttr($el, 'open-as')], 'open-to'));
+            removeSXMLAttr($el, 'open-as');
+        }
+        if (hasSXMLAttr($el, 'visible-as')) {
+            removeSXMLAttr($el, 'visible-as');
+        }
+    }
+    
     ////////////////
 
     // Основная функция. Принимает на вход DOMElement. Возвращает либо себя, либо то, на что себя заменили.
@@ -504,9 +550,12 @@
                         if ($el->getAttribute('name') === $_SXML['action']) {
                             return executeAction($el);
                         } else {
+                            // Убираем все внутренности
+                            interfacizeRights($el);
                             while ($el->childNodes->length > 0) {
                                 $el->removeChild($el->firstChild);
                             }
+                            return $el;
                         }
                     break;
                     case 'include':

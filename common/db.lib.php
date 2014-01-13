@@ -66,6 +66,26 @@
     }
     
     ///////
+    // Узнаёт доступы, заданные по образцу
+    //
+    function requestPermissionsFromDB($table, $val, $type = 'visible-to') {
+        global $_SXML_VARS;
+        if (isset($_SXML_VARS['permrowid'])) {
+            $hadpermrowid = true;
+            $oldpermrowid = $_SXML_VARS['permrowid'];
+        }
+        $_SXML_VARS['permrowid'] = $val;
+        $str = simpleSelect('sxml:' . $type, '"'.$table.'"', '"rowid" = :permrowid', 'permrowid');
+        if ($hadpermrowid) {
+            $_SXML_VARS['permrowid'] = $oldpermrowid;
+        } else {
+            unset($_SXML_VARS['permrowid']);
+        }
+        return explode(' ', $str);
+    }
+    
+    
+    ///////
     // Составыне части для функций-обработчиков
     
     // Возвращает в виде массива данные, переданные в insert или edit

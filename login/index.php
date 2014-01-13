@@ -3,31 +3,6 @@
     require_once('login.inc.php');
     require_once('../common/setup.php');
     
-    function redirect($url) {
-        header('HTTP/1.1 302 Found');
-        header('Location: '.$url);
-    }
-    
-    function requestJSON($url, $post = null) {
-        $curl = curl_init();
-        curl_setopt($curl, CURLOPT_URL, $url);
-        curl_setopt($curl, CURLOPT_HEADER, 0);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 0);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0);
-
-        if (is_array($post)) {
-            curl_setopt($curl, CURLOPT_POST, $post);
-        }
-        $r = curl_exec($curl);
-        if (!$r) {
-            error(curl_error($curl));
-            return false;
-        } else {
-            return json_decode($r, true);
-        }
-    }
-    
     ///// 
     
     // Подробности настроек протокола
@@ -110,6 +85,7 @@
     function parseToken($provider, $results) {
         if ($provider == 'vk') {
             if (isset($results['access_token']) && isset($results['user_id'])) {
+                $_SESSION['sxml:vk:accessToken'] = $results['access_token'];
                 return array(
                     'token' => $results['access_token'],
                     'user' => $results['user_id']
