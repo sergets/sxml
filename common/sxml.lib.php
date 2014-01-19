@@ -434,8 +434,9 @@
         }
     }
     
-    // Ищет все переменные перед указанным элементом и последовательно их заполняет. Нужно для случая, когда мы запрашиваем часть документа
-    // Переменные — это sxml:var или sxml:query с указанным store, не находящиеся в action.
+    // Ищет все переменные перед указанным элементом и последовательно их заполняет. Нужно для случая, когда мы запрашиваем часть документа,
+    // а также для разворачивания if'ов и foreach'ей.
+    // Переменные — это sxml:var или с указанным store, не находящиеся в action.
     function collectVars($block) {
         global $SXMLParams;
   
@@ -472,7 +473,7 @@
             getDB()->beginTransaction();
             $_SXML['inTransaction'] = true;
             $failed = false;
-            
+
             $children = getAllChildElements($currentAction);
             for ($i = 0; $i < $children->length; $i++) {
                 if (!$failed) {
@@ -538,7 +539,7 @@
     
     ////////////////
 
-    // Основная функция. Принимает на вход DOMElement. Возвращает либо себя, либо то, на что себя заменили.
+    // Основная функция. Принимает на вход DOMElement. Возвращает либо себя, либо то, на что себя заменили (возможно, массив).
     // Если удалили, возвращает null. Если заменили весь документ и пора заканчивать всю обработку, возвращает false.
     function processElement($el) {
         global $SXMLParams, $_SXML, $_SXML_VARS;
@@ -546,6 +547,39 @@
         if ($el->nodeType == XML_ELEMENT_NODE) {
             if ($el->namespaceURI == $SXMLParams['ns']) {
                 switch ($el->localName) {
+                    case 'if':
+                        // TODO
+                    break;
+                    case 'foreach':
+                        if (!$el->hasAttribute('array') || !$el->hasAttribute('as')) {
+                            return createError(9, 'foreach needs at least "array" and "as" attributes');
+                        }
+                        $inputArray = explode($el->hasAttribute('delim') ? $el->getAttribute('delim') : ' ', $_SXML_VARS[$el->getAttribute('array')]);
+                        $asName = $el->getAttribute('as');  
+                        if (isset($_SXML_VARS[$asName])) {
+                            $wasOldAs = true;
+                            $oldAs = $_SXML_VARS[$asName];
+                        }
+                        $children = getAllChildElements($el);
+                        $numChildren = $children->length;
+                        $fragment = $el->ownerDocument->createDocumentFragment();
+                        
+                        foreach ($inputArray as $i => $currentValue) {
+                            $_SXML_VARS[$asName] = $currentValue;
+                            for ($i = 0; $i < $numChildren; $i++) {
+                                $currentChild = $children->item($i)->cloneNode(true);
+                                $fragment->appendChild($currentChild);
+                                processElement($currentChild);
+                            }
+                        }
+                        
+                        if ($wasOldAs) {
+                            $_SXML_VARS[$asName] = $wasOldAs;
+                        }
+                        
+                        $el->parentNode->replaceChild($fragment, $el);
+                        return $fragment;
+                    break;
                     case 'action':
                         if ($el->getAttribute('name') === $_SXML['action']) {
                             return executeAction($el);
@@ -656,7 +690,8 @@
             5 => 'Неправильный токен',
             6 => 'Недостаточно прав',
             7 => 'Неверное действие',
-            8 => 'Неподходящее значение параметра'
+            8 => 'Неподходящее значение параметра',
+            9 => 'Синтаксическая ошибка'
         );
         $error = $doc->createElementNS($SXMLParams['ns'], 'error');
         if (!$text) {
