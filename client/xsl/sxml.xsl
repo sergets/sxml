@@ -416,6 +416,22 @@
         </xsl:choose>
     </xsl:template>
     
+    <xsl:template name="sxml:count">
+        <xsl:param name="haystack"/>
+        <xsl:param name="needle"/>
+        <xsl:param name="count" select="0"/>
+        <xsl:choose>
+            <xsl:when test="contains($haystack, $needle)">
+                <xsl:call-template name="sxml:count">
+                    <xsl:with-param name="haystack" select="substring-after($haystack, $needle)"/>
+                    <xsl:with-param name="needle" select="$needle"/>
+                    <xsl:with-param name="count" select="$count + 1"/>
+                </xsl:call-template>
+            </xsl:when>
+            <xsl:otherwise><xsl:value-of select="$count"/></xsl:otherwise>
+        </xsl:choose>
+    </xsl:template>    
+    
     <xsl:template name="sxml:quote">
         <xsl:param name="v" select="''"/>
         <xsl:call-template name="sxml:replace">
