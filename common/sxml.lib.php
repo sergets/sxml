@@ -451,6 +451,12 @@
         }        
     }
     
+    // Проверяет, true ли условие в переменной
+    function testVar($varName, $compare = true) {
+        global $_SXML_VARS;
+        return (!!$_SXML_VARS[$varName] == $compare);
+    }
+    
     // Выполняет в документе действие: ищёт <sxml:action> с соответствующим именем, прогоняет все элементы. Если элемент первого уровня вышел с ошибкой, то вся завершается с ошибкой,
     // Иначе с результатом всех ok первого уровня. Здесь хинт: можно игнорировать ошибки того или иного запроса, просто спрятав его под неисчезающий тег (т. е. не под sxml:if)
     function executeAction($currentAction) {
@@ -545,10 +551,28 @@
         global $SXMLParams, $_SXML, $_SXML_VARS;
     
         if ($el->nodeType == XML_ELEMENT_NODE) {
+            foreach($el->attributes as $a => $attr) {
+                $attr->value = substituteVars($attr->value, $_SXML_VARS);
+            }
+
+            foreach($el->childNodes as $a => $grandchild) {
+                if ($grandchild->nodeType == XML_TEXT_NODE && needsSubstitution($grandchild->wholeText)) {
+                    $el->replaceChild($el->ownerDocument->createTextNode(substituteVars($grandchild->wholeText, $_SXML_VARS)), $grandchild);
+                }
+            }
+
             if ($el->namespaceURI == $SXMLParams['ns']) {
                 switch ($el->localName) {
                     case 'if':
-                        // TODO
+                    case 'unless':
+                        if ($el->hasAttribute('test') && testVar($el->getAttribute('test'), !!($el->localName == 'if'))) {
+                            $fragment = getContentAsFragment($el);
+                            $el->parentNode->replaceChild($fragment, $el);
+                            return $fragment;
+                        } else {
+                            $el->parentNode->removeChild($el);
+                            return null;
+                        }
                     break;
                     case 'foreach':
                         if (!$el->hasAttribute('array') || !$el->hasAttribute('as')) {
@@ -563,20 +587,13 @@
                         $children = getAllChildElements($el);
                         $numChildren = $children->length;
                         $fragment = $el->ownerDocument->createDocumentFragment();
-                        
                         foreach ($inputArray as $i => $currentValue) {
                             $_SXML_VARS[$asName] = $currentValue;
-                            for ($i = 0; $i < $numChildren; $i++) {
-                                $currentChild = $children->item($i)->cloneNode(true);
-                                $fragment->appendChild($currentChild);
-                                processElement($currentChild);
-                            }
+                            $fragment->appendChild(getContentAsFragment($el));
                         }
-                        
                         if ($wasOldAs) {
                             $_SXML_VARS[$asName] = $wasOldAs;
                         }
-                        
                         $el->parentNode->replaceChild($fragment, $el);
                         return $fragment;
                     break;
@@ -691,7 +708,9 @@
             6 => 'Недостаточно прав',
             7 => 'Неверное действие',
             8 => 'Неподходящее значение параметра',
-            9 => 'Синтаксическая ошибка'
+            9 => 'Синтаксическая ошибка',
+            10 => 'Ошибка при загрузке файла',
+            11 => 'Нельзя удалить непустой объект'
         );
         $error = $doc->createElementNS($SXMLParams['ns'], 'error');
         if (!$text) {
@@ -753,6 +772,21 @@
         }
         setSXMLAttr($el, 'source', local2global($el->baseURI).(count($myGet) > 0 ? '?'.http_build_query($myGet) : ''));
     }
+    
+    // Возвращает documentFragment c копией содержимого элемента
+    function getContentAsFragment($el) {
+        $children = getAllChildElements($el);
+        $numChildren = $children->length;
+        $fragment = $el->ownerDocument->createDocumentFragment();
+        for ($i = 0; $i < $numChildren; $i++) {
+            $currentChild = $children->item($i)->cloneNode(true);
+            $fragment->appendChild($currentChild);
+            processElement($currentChild);
+        }
+        return $fragment;
+    }
+    
+    /////////////////////////////
     
     // Основная функция. Получает на вход DOMDocument
     function processDocument($doc, $hash = array()) {

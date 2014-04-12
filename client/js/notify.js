@@ -1,9 +1,8 @@
 define(['jquery'], function($) {
 
     return {
-
         _messages : {},
-        
+       
         show : function(text, options) {
             
             var _this = this,
@@ -67,8 +66,24 @@ define(['jquery'], function($) {
             
             this.show(text, { 'class' : 'sxml_error' });
         
+        },
+        
+        confirm : function(text, callback, ctx) {
+            this.show(
+                $('<div/>')
+                    .html(text + ' ')
+                    .append($('<a/>')
+                        .html('Да')
+                        .addClass('sxml_confirm-button')
+                        .attr('href', '/')
+                        .click(function(e) {
+                            callback.call(ctx || window);
+                            e.preventDefault();
+                        })
+                    ),
+                { 'class' : 'sxml_ok', timeout: 1e10 } 
+            );
         }
-
     };
     
 });

@@ -16,7 +16,7 @@
             } catch(PDOException $e) {
                 echo "sql exception!";
                 if (!file_exists($SXMLParams['data'])) {
-                    mkdir($SXMLParams['data']);
+                    echo $SXMLParams['data'];
                 }
                 if (!file_exists($SXMLParams['db'])) {
                     fopen($SXMLParams['db'], 'w');
@@ -142,7 +142,7 @@
         if (is_array($pragma)) {
             $actualColumns = array();
             foreach($pragma as $i => $row) {
-                $actualColumns[] = $row[1];
+                $actualColumns[] = $row['name'];
             }
             foreach($data as $key => $v) {
                 if (!in_array($key, $actualColumns)) {
@@ -187,7 +187,7 @@
         $restrictedQuery = 'select '.$what.$paramStringBeforeWhere.' and ("sxml:visible-to" not null) '.$paramStringAfterWhere;
         $restricted = $db->query($restrictedQuery);
         if (!$restricted) {
-            logQuery($restrictedQuery, array(), $restricted);
+            logQuery($restrictedQuery, array(), getDB()->errorInfo());
             $restricted = 0;
         } else {
             logQuery($restrictedQuery, array(), $restricted->fetchAll(PDO::FETCH_ASSOC));
@@ -239,7 +239,7 @@
         $queryVars = $el->getAttribute('uses').' user';
         ensureColumns($table, $data);
         $rq = processRawQuery($queryText, $queryVars);
-        if ($rq) {
+        if (is_array($rq)) {
             $rq = simpleSelect('sxml:item-id', $table, 'rowid=last_insert_rowid();');
         }
         return $rq;
@@ -287,7 +287,7 @@
 
     }
     
-    // Обрабатывает сырую транзакцию, возвращает массив результатов, либо true, либо строку с ошибкой, либо число — айдишник последней записи
+    // Обрабатывает сырую транзакцию, возвращает массив результатов, либо строку с ошибкой, либо число — айдишник последней записи
     function processRawQuery($q, $uses = null) {
         global $_SXML_VARS;
 
@@ -298,6 +298,7 @@
         $varList = array();
         if (!$query) {
             $err = getDB()->errorInfo();
+            logQuery($q, $uses, $err);
             return 'DB error: '.$err[2];
         }
         foreach($_SXML_VARS as $name => $value) {
@@ -312,7 +313,7 @@
             if (count($fetch) > 0) {
                 return $fetch;
             } else {
-                return true;
+                return array();
             }
         } else {
             $ei = $query->errorInfo();
@@ -324,12 +325,25 @@
     // Формирует результирующий элемент
     function buildResult($el, $result, $range = false, $total = false) {
         global $_SXML_VARS;
-   
+
         $doc = $el->ownerDocument;
-        if (/*is_array($result) || (is_numeric($result) || $result === true) && */ $el->localName == 'select' || $el->hasAttribute('nook')) { 
+        if (is_array($result) || /*(is_numeric($result) || $result === true) && */ $el->localName == 'select' || $el->hasAttribute('nook')) { 
             // Если это запрос не на действие, то в любом случае показываем нужный тег 
-            if ($el->hasAttribute('store') && is_array($result)) {
-                $_SXML_VARS[$el->getAttribute('store')] = current($result[0]);
+            if ($el->hasAttribute('store')) {
+                if (is_array($result)) {
+                    if ($el->hasAttribute('delim')) {
+                        $res = array();
+                        foreach($result as $i => $r) {
+                            $res[] = current($r);
+                        }
+                        $_SXML_VARS[$el->getAttribute('store')] = join($el->getAttribute('delim'), $res);
+                    } else {
+                        $_SXML_VARS[$el->getAttribute('store')] = isset($result[0])? current($result[0]) : '';
+                    }
+                } else {
+                    $_SXML_VARS[$el->getAttribute('store')] = $result."";
+                }
+                return null;
             } else {
                 if (!$el->hasAttribute('tag')) {
                     $tag = 'list';
@@ -355,8 +369,10 @@
                 }
                 $attrs = explode(' ', $el->getAttribute('attrs'));
                 $ignore = explode(' ', $el->getAttribute('ignore'));
+                $oldVars = $_SXML_VARS;
                 if (is_array($result)) {  // Иначе в ответе ничего 
                     foreach ($result as $i => $row) {
+                        $_SXML_VARS = $oldVars;
                         $entry = $el->getAttribute('entry');
                         $entryClass = $el->getAttribute('entry-class');
                         if (substr($entry, 0, 5) === 'sxml:') {
@@ -370,6 +386,7 @@
                             setSXMLAttr($rowElem, 'class', $entryClass);
                         }
                         foreach ($row as $name => $value) {
+                            $_SXML_VARS[$name] = $value;
                             if ($value != null) {
                                 if (substr($name, 0, 5) === 'sxml:') {
                                     setSXMLAttr($rowElem, substr($name, 5), $value);
@@ -386,20 +403,14 @@
                         foreach($el->childNodes as $i => $child) {
                             if ($child->nodeType == XML_ELEMENT_NODE) {
                                 $readyElem = $child->cloneNode(true);
-                                foreach($readyElem->attributes as $a => $attr) {
-                                    $attr->value = substituteVars($attr->value, $row, $_SXML_VARS);
-                                }
-                                foreach($readyElem->childNodes as $a => $grandchild) {
-                                    if ($grandchild->nodeType == XML_TEXT_NODE) {
-                                        $readyElem->replaceChild($readyElem->ownerDocument->createTextNode(substituteVars($grandchild->wholeText, $row, $_SXML_VARS)), $grandchild);
-                                    }
-                                }
                                 $rowElem->appendChild($readyElem);
+                                processElement($readyElem);
                             }
                         }
                         $res->appendChild($rowElem);
                     }
                 }
+                $_SXML_VARS = $oldVars;
                 return $res;
             }
         } elseif ($result === true) {
@@ -448,7 +459,11 @@
             $el->parentElement->replaceChild(createError($el->ownerDocument, 3, $e->getMessage()));
         }
         $res = buildResult($el, $result, $range, $total);
-        $el->parentNode->replaceChild($res, $el);
+        if ($res) {
+            $el->parentNode->replaceChild($res, $el);
+        } else {
+            $el->parentNode->removeChild($el);
+        }
         return $res;
     }
     

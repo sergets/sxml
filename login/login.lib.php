@@ -1,5 +1,6 @@
 <?
-    require_once('../common/db.lib.php');
+    require_once(dirname(__FILE__).'/../common/setup.php');
+    require_once($SXMLParams['sxml'].'/common/db.lib.php');
     
     // Инициализиация
     getDB()->query('create table if not exists "sxml:users" ("provider", "user" unique, "name", "link", "userpic", "sex")');
@@ -79,6 +80,21 @@
         $query = getDB()->prepare('select * from "sxml:users" where ("user" = :user)');
         if (!$query) return array();
         $query->execute(array( 'user' => $userid ));
+        $result = $query->fetchAll();
+        if (count($result) !== 1) {
+            return false;
+        } else {
+            return $result[0];
+        }
+        
+    }
+    
+    // Возвращает свойства группы в виде хеша
+    function getGroup($id) {
+    
+        $query = getDB()->prepare('select * from "sxml:groups" where ("group" = :gr)');
+        if (!$query) return array();
+        $query->execute(array( 'gr' => $id ));
         $result = $query->fetchAll();
         if (count($result) !== 1) {
             return false;

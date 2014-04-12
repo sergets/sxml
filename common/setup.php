@@ -10,15 +10,13 @@
             
             'ns' => 'http://sergets.ru/sxml',
            
-            // путь к плагину для логина
-            
-            'login' => '../login',
-            
             // обработчики ошибок, пути указываются относительно handler.php
             
-            'errors' => array(
+            'specialHandlers' => array(
                 '404' => '../handlers/404.php',
-                '403' => '../handlers/403.php'
+                '403' => '../handlers/403.php',
+                'upload' => '../handlers/upload.php',
+                'dir' => '../handlers/directory.php'
             ),
             
             // Обработчики по типам файлов
@@ -38,7 +36,6 @@
                 'index.xml.php',
                 'index.xml'
             ),
-            'dirhandler' => '../handlers/directory.php',
             
             // Список возможных действий
             
@@ -58,15 +55,26 @@
         $SXMLParams['docroot'] = $_SERVER['DOCUMENT_ROOT']; // /var/www/site_ru
         $SXMLParams['host'] = $_SERVER['HTTP_HOST']; // site.ru
         $whereAmI = explode('/', substr($_SERVER['PHP_SELF'], 1));
-        array_pop($whereAmI); // handler.php
-        array_pop($whereAmI); // common
+        do {
+            array_pop($whereAmI); // handler.php
+            $curfldr = $SXMLParams['docroot'] . '/' . join('/', $whereAmI);
+        } while (!file_exists($curfldr . '/client'));
         $SXMLParams['folder'] = array_pop($whereAmI); // sxml
         $SXMLParams['root'] = '/'.join('/', $whereAmI).((count($whereAmI) > 0) ? '/' : ''); // / or /project/
         $SXMLParams['localroot'] = $SXMLParams['docroot'].$SXMLParams['root']; // /var/www/site_ru/project/
+        $SXMLParams['sxml'] = $SXMLParams['localroot'].$SXMLParams['folder'];
+        
+        // путь к плагину для логина
+        $SXMLParams['login'] = $SXMLParams['sxml'].'/login';
         
         // путь к базе данных для PDO
         $SXMLParams['data'] = $SXMLParams['localroot'].'data';
         $SXMLParams['db'] = $SXMLParams['data'].'/data.sqlite';
+        
+        // разрешённые типы данных для загрузки файлов
+        $SXMLParams['accept'] = array('image/jpeg', 'image/png');
+        $SXMLParams['uploaders'] = '#';
+        $SXMLParams['uploaddir'] = $SXMLParams['localroot'].'uploads';
     
     }
 ?>

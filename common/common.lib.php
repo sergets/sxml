@@ -129,6 +129,10 @@
     
     //////
     
+    function needsSubstitution($txt) {
+        return preg_match('/\{\$([\w\-\:\/]+)\}/', $grandchild->wholeText);
+    }
+    
     function substituteVars($txt, $arr, $fallback = array()) {
         $matches = false;
         while(preg_match('/\{\$([\w\-\:\/]+)\}/', $txt, $matches)) {

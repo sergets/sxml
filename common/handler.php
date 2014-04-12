@@ -42,8 +42,11 @@
 
         $ready = true;
         header('HTTP/1.0 404 Not Found');
-        include ($SXMLParams['errors']['404']); //
-
+        include ($SXMLParams['specialHandlers']['404']); //
+    } elseif (dirname($file) == $SXMLParams['uploaddir']) {
+        $ready = true;
+        header('HTTP/1.0 200 OK');
+        include ($SXMLParams['specialHandlers']['upload']); //
     } elseif (is_dir($file)) {
         $foundindex = false;
         foreach ($SXMLParams['dirindex'] as $i => $indexfile) {
@@ -58,7 +61,7 @@
 
             $ready = true;
             header('HTTP/1.0 200 OK');
-            include ($SXMLParams['dirhandler']);
+            include ($SXMLParams['specialHandlers']['dir']);
 
         }
     }
@@ -86,7 +89,7 @@
             // Файл направили на нас в .htaccess'е через 403, но хендлера не нашлось. Значит, это и правда 403.
             $ready = true;
             header('HTTP/1.0 403 Forbidden');
-            include ($SXMLParams['errors']['403']);
+            include ($SXMLParams['specialHandlers']['403']);
 
         }
 
