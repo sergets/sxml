@@ -99,7 +99,8 @@ define([
             var input = this;
             this._content.empty();
             this._val.forEach(function(hash) {
-                var src = sxml.root + '/../uploads/' + hash + '?s=50x50';
+                var src = sxml.root + '/../uploads/' + hash + '?s=50x50',
+                    onClick = this._options.readOnly && this._options.onClick
                 this._content.append(
                     $('<div/>')
                         .addClass('sxml_fileinput-file')
@@ -122,6 +123,9 @@ define([
                                     _this.src = src;
                                 }, 500)
                             })
+                            .click(onClick? $.proxy(function() {
+                                onClick.call(this, hash, this.val())
+                            }, this) : $.noop)
                         )
                 )
             }, this);
