@@ -565,7 +565,21 @@
                 switch ($el->localName) {
                     case 'if':
                     case 'unless':
-                        if ($el->hasAttribute('test') && testVar($el->getAttribute('test'), !!($el->localName == 'if'))) {
+                        if (
+                            (
+                                $el->hasAttribute('test') && $el->hasAttribute('equals') && (
+                                    ($el->localName == 'if' && $_SXML_VARS[$el->getAttribute('test')] == $_SXML_VARS[$el->getAttribute('equals')]) ||
+                                    ($_SXML_VARS[$el->getAttribute('test')] != $_SXML_VARS[$el->getAttribute('equals')])
+                                )
+                            ) || (
+                                $el->hasAttribute('test') && $el->hasAttribute('equals-val') && (
+                                    ($el->localName == 'if' && $_SXML_VARS[$el->getAttribute('test')] == $el->getAttribute('equals-val')) ||
+                                    ($_SXML_VARS[$el->getAttribute('test')] != $el->getAttribute('equals-val'))
+                                )
+                            ) || (
+                                $el->hasAttribute('test') && !$el->hasAttribute('equals') && !$el->hasAttribute('equals-val') && testVar($el->getAttribute('test'), !!($el->localName == 'if'))
+                            )
+                        ) {
                             $fragment = getContentAsFragment($el);
                             $el->parentNode->replaceChild($fragment, $el);
                             return $fragment;
