@@ -181,7 +181,7 @@
             $paramStringBeforeWhere .= ' and ('.$el->getAttribute('where').')';
         }
         if ($el->hasAttribute('order-by')) {
-            $paramStringAfterWhere .= ' order by ('.$el->getAttribute('order-by').')';
+            $paramStringAfterWhere .= ' order by ('.$el->getAttribute('order-by').')' . ($el->hasAttribute('order') && $el->getAttribute('order') == 'desc'? ' desc' : ' asc');
         }
         
         $restrictedQuery = 'select '.$what.$paramStringBeforeWhere.' and ("sxml:visible-to" not null) '.$paramStringAfterWhere;
