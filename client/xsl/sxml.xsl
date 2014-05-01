@@ -83,7 +83,9 @@
                                     <xsl:for-each select="/*/sxml:data/sxml:found-users/sxml:user">
                                         <xsl:if test="position() &gt; 1">, </xsl:if>
                                         '<xsl:apply-templates mode="sxml:quote" select="@id"/>' : {
-                                            name : '<xsl:apply-templates mode="sxml:quote" select="@name"/>', link : '<xsl:apply-templates mode="sxml:quote" select="@link"/>'
+                                            name : '<xsl:apply-templates mode="sxml:quote" select="@name"/>',
+                                            sex : '<xsl:apply-templates mode="sxml:quote" select="@sexs"/>',
+                                            link : '<xsl:apply-templates mode="sxml:quote" select="@link"/>',
                                         }
                                     </xsl:for-each>
                                 },
@@ -467,9 +469,27 @@
     
     <xsl:template name="sxml:user">
         <xsl:param name="user"/>
-        <span class="sxml_username"><a href="{concat('http://', /*/sxml:data/sxml:found-users/sxml:user[@id=$user]/@link)}"><xsl:value-of select="/*/sxml:data/sxml:found-users/sxml:user[@id=$user]/@name"/></a></span>
+        <span class="sxml_username">
+            <xsl:attribute name="ondblclick">return { username : '<xsl:call-template name="sxml:quote"><xsl:with-param name="v" select="$user"/></xsl:call-template>' }</xsl:attribute>
+            <a href="{concat('http://', /*/sxml:data/sxml:found-users/sxml:user[@id=$user]/@link)}"><xsl:value-of select="/*/sxml:data/sxml:found-users/sxml:user[@id=$user]/@name"/></a>
+        </span>
     </xsl:template>
-        
+
+    <xsl:template name="sxml:conjugate">
+        <xsl:param name="user"/>
+        <xsl:param name="m"/>
+        <xsl:param name="f"/>
+        <xsl:param name="n" select="$m"/>
+        <span class="sxml_conjugate">
+            <xsl:attribute name="ondblclick">return { username : '<xsl:call-template name="sxml:quote"><xsl:with-param name="v" select="$user"/></xsl:call-template>' }</xsl:attribute>
+            <xsl:choose>
+                <xsl:when test="/*/sxml:data/sxml:found-users/sxml:user[@id=$user]/@sex = 'm'"><xsl:value-of select="$m"/></xsl:when>
+                <xsl:when test="/*/sxml:data/sxml:found-users/sxml:user[@id=$user]/@sex = 'f'"><xsl:value-of select="$f"/></xsl:when>
+                <xsl:otherwise><xsl:value-of select="$n"/></xsl:otherwise>
+            </xsl:choose>
+        </span>
+    </xsl:template>
+
     <xsl:template match="*" mode="sxml">
         <xsl:call-template name="sxml:attrs">
             <xsl:with-param name="node" select="exsl:node-set(.)"/>

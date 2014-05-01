@@ -1,6 +1,15 @@
-define(['jquery', 'sxml/sxml'], function($, sxml) {
+define([
+    'jquery',
+    'sxml/sxml',
+    'sxml/utils/observable'
+], function(
+    $,
+    sxml,
+    Observable
+) {
 
     var Input = function(elem, val, options) {
+        Observable.call(this);
         this._vals = val? val.split(' ') : [];
         this._names = $.extend({}, $.map(sxml.data.users, function(v, i) { return v.name; }));
         this._domElem = $(elem);
@@ -13,7 +22,7 @@ define(['jquery', 'sxml/sxml'], function($, sxml) {
         this._update();
     };
     
-    Input.prototype = {
+    Input.prototype = $.extend({}, Observable.prototype, {
         _build : function() {
             this._users = $('<span/>')
                 .addClass('sxml_rightsinput-users');
@@ -55,7 +64,8 @@ define(['jquery', 'sxml/sxml'], function($, sxml) {
                         var input = this._input[0];
                         if (input.selectionStart === 0 && input.selectionEnd === 0) {
                             this._vals.pop();
-                            this._update(); 
+                            this._update();
+                            this.trigger('change');                            
                             e.preventDefault();
                             e.stopPropagation();    
                         }
@@ -83,7 +93,7 @@ define(['jquery', 'sxml/sxml'], function($, sxml) {
                             next.addClass('sxml_rightsinput-selected');
                         }
                     } else {
-                        this._doSuggest();                    
+                        this._doSuggest();
                     }
                 }, this));
         },
@@ -139,6 +149,7 @@ define(['jquery', 'sxml/sxml'], function($, sxml) {
                 .click($.proxy(function() {
                     this._vals.push(elem.id);
                     this._update();
+                    this.trigger('change');
                 }, this));
             
         },        
@@ -195,6 +206,7 @@ define(['jquery', 'sxml/sxml'], function($, sxml) {
         _add : function(id) {
             this._vals.push(id);
             this._update();
+            this.trigger('change');
         },
         
         _remove : function(id) {
@@ -203,6 +215,7 @@ define(['jquery', 'sxml/sxml'], function($, sxml) {
                 this._vals.splice(c, 1);
             }
             this._update();
+            this.trigger('change');            
         },
         
         _update : function() {
@@ -220,9 +233,10 @@ define(['jquery', 'sxml/sxml'], function($, sxml) {
             } else {
                 this._vals = val.split(' ');
                 this._update();
+                this.trigger('change');
             }
         }
-    };
+    });
 
     return Input;
 

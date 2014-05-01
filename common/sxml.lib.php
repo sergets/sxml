@@ -736,6 +736,7 @@
                 $elem = createSXMLElem($doc, 'user');
                 $elem->setAttribute('id', $hash['user']);
                 $elem->setAttribute('name', $hash['name']);
+                $elem->setAttribute('sex', $hash['sex']);
                 $elem->setAttribute('link', $hash['link']);
                 $mainNode->appendChild($elem);
             }
