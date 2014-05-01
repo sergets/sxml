@@ -47,6 +47,7 @@ define([
         _current : null,
         _loadingImage : null,
         _loadingThumb : null,
+        _sizeInterval : null,
         
         _init : function() {
             this._domElem
@@ -65,6 +66,7 @@ define([
         _abort : function() {
             this._loadingImage && (this._loadingImage.onload = $.noop);
             this._loadingThumb && (this._loadingThumb.onload = $.noop);
+            this._sizeInterval && clearInterval(this._sizeInterval);
         },
         
         _replacePicture : function(src) {
@@ -108,10 +110,21 @@ define([
                 
             var imgLoaded = false,
                 thumb = this._loadingThumb = new Image(),
-                image = this._loadingImage = new Image();
+                image = this._loadingImage = new Image(),
+                lowsrc = sxml.root + '/../uploads/' + hash + '?s=x100',
+                src = sxml.root + '/../uploads/' + hash + '?s=x600';
                 
-            thumb.src = sxml.root + '/../uploads/' + hash + '?s=x100';
-            image.src = sxml.root + '/../uploads/' + hash;
+            this._sizeInterval = setInterval($.proxy(function() {
+                if(image.naturalWidth > 0 && image.naturalHeight > 0) {
+                    this._picture
+                        .css('width', image.naturalWidth + 'px')
+                        .css('height', image.naturalHeight + 'px');
+                    clearInterval(this._sizeInterval);
+                }
+            }, this), 10);
+            
+            thumb.src = lowsrc;
+            image.src = src;
             thumb.onload = $.proxy(function() {
                 this._current = hash;
                 if (!imgLoaded) {
@@ -121,7 +134,10 @@ define([
             image.onload = $.proxy(function() {
                 imageLoaded = true;
                 this._replacePicture(image.src);
-                this._loader.addClass('hidden');
+                this._picture.load($.proxy(function() {
+                    this._loader.addClass('hidden');
+                    this._picture.unbind('load');
+                }, this));
                 this.trigger('load', hash);
             }, this);
         }

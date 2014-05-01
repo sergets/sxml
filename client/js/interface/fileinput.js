@@ -8,8 +8,9 @@ define([
     Observable
 ) {
     var defaultOptions = {
-        maxFiles : 15
-    };
+            maxFiles : 15
+        },
+        loadCounter = 0;
 
     var Input = function(elem, options) {
         Observable.call(this);
@@ -56,7 +57,11 @@ define([
                 iframe = $('<iframe/>')
                     .addClass('sxml_fileinput-iframe')
                     .attr('name', iframeName)
-                    .attr('src', 'about:blank'),
+                    .attr('src', 'about:blank')
+                    .load(function() {
+                        var href = (iframe[0].contentWindow? iframe[0].contentWindow : iframe[0].contentDocument.window).location.href;
+                        if (href !== 'about:blank') loadCounter--;
+                    }),
                 form = $('<form/>')
                     .attr('action', sxml.root + '/actions/upload/')
                     .attr('method', 'post')
@@ -73,8 +78,9 @@ define([
                         .attr('value', sxml.data.token)
                     )
                     .append(input.attr('name', 'file'));
-                this._wrapper
-                    .append(iframe);
+                //this._wrapper
+                    //.append(iframe);
+                iframe.appendTo($(document.body));
             return form;
         },
         
@@ -89,10 +95,10 @@ define([
             this._input.detach();
             var form = this._buildForm(this._input);
             form.submit();
+            loadCounter++;
             this._val.push(this._hash); // TODO multiple files
             this._hash = this._makeHash();
             this._drawContent();
-            // TODO new hash
         },
         
         _drawContent : function() {
@@ -116,12 +122,18 @@ define([
                             .css('height', '50px')
                             .attr('src', src)
                             .bind('error', function() {
-                                var _this = this;
+                                var _this = this,
+                                    img = new Image(),
+                                    interval = setInterval(function() {
+                                        img.src = src;
+                                    }, 500);
                                 $(this).parent().addClass('sxml_fileinput-file-loading');
-                                setTimeout(function() {
+                                img.src = src;
+                                img.onload = function() {
                                     $(_this).parent().removeClass('sxml_fileinput-file-loading');
                                     _this.src = src;
-                                }, 500)
+                                    clearInterval(interval);
+                                }
                             })
                             .click(onClick? $.proxy(function() {
                                 onClick.call(this, hash, this.val())
@@ -152,6 +164,14 @@ define([
             } else {
                 return this._val.join(' ');
             }
+        }
+    });
+    
+    $(window).bind('beforeunload', function(e) {
+        if (loadCounter == 0) {
+            return;
+        } else {
+            return 'Несколько (' + loadCounter + ') файлов ещё недозагрузились';
         }
     });
     
