@@ -335,8 +335,7 @@
         <xsl:param name="one"/>
         <xsl:param name="few"/>
         <xsl:param name="many"/>
-        <xsl:value-of select="$number"/><xsl:text> </xsl:text>
-        <xsl:choose>
+        <xsl:value-of select="$number"/>&#160;<xsl:choose>
             <xsl:when test="$number mod 10 &gt; 1 and $number mod 10 &lt; 5 and ($number mod 100 &gt; 15 or $number mod 100 &lt; 10)">
                 <xsl:value-of select="$few"/>
             </xsl:when>
