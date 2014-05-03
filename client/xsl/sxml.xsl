@@ -127,13 +127,13 @@
                 <script type="text/javascript">
                     require = {
                         paths : {
-                            'jquery': '//yandex.st/jquery/2.0.0/jquery',
+                            'jquery': '<xsl:call-template name="sxml:quote"><xsl:with-param name="v" select="concat($sxml-root-from-xml, '/client/libs/jquery')"/></xsl:call-template>',
                             'sxml' : '<xsl:call-template name="sxml:quote"><xsl:with-param name="v" select="concat($sxml-root-from-xml, '/client/js')"/></xsl:call-template>'
                         }
                     };
                 </script>
 
-                <script type="text/javascript" src="//yandex.st/jquery/2.0.0/jquery.js"></script>
+                <script type="text/javascript" src="{concat($sxml-root-from-xml, '/client/libs/jquery.js')}"></script>
                 <script type="text/javascript" src="{concat($sxml-root-from-xml, '/client/libs/require.js')}"></script>
                 
                 <xsl:for-each select="exsl:node-set($scripts)/*">
