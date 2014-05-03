@@ -403,7 +403,7 @@
             $from = $var->getAttribute('from'); 
             $value = $var->getAttribute('value');
             $val = false;
-            if (!$var->hasAttribute('preserve-old') || !isset($_SXML_VARS['name'])) {
+            if (!$var->hasAttribute('preserve-old') || !isset($_SXML_VARS[$name])) {
                 if ($from == 'get') {
                     $val = $_SXML_GET[$value];
                 } elseif ($from == 'post') {
