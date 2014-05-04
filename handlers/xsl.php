@@ -5,17 +5,17 @@
     // ставит длительное время кеширования.
     
     require_once '../common/sxml.lib.php';
-    
-    function processXSLIncludes($file, $baseURI = false) {
+
+    function processIncludes($file, $baseURI = false) {
         $doc = new DOMDocument();
         $filepath = $baseURI ? resolvePath($file, $baseURI) : $file;
         $doc->load($filepath);
-        $includes = $doc->getElementsByTagNameNS('http://www.w3.org/1999/XSL/Transform', 'include');
-        while ($includes->length > 0) {
-            //echo "[at $file: $includes->length includes, pos = $i]\n";        
-            $include = $includes->item(0);
-            //echo "[processing {$include->getAttribute('href')} included at {$file}]\n";
-            $replacementDoc = processXSLIncludes($include->getAttribute('href'), $include->baseURI);
+        
+        // xsl:include
+        $xslIncludes = $doc->getElementsByTagNameNS('http://www.w3.org/1999/XSL/Transform', 'include');
+        while ($xslIncludes->length > 0) {
+            $include = $xslIncludes->item(0);
+            $replacementDoc = processIncludes($include->getAttribute('href'), $include->baseURI);
             $replacement = $doc->createDocumentFragment();
             $replacementChild = $replacementDoc->documentElement->firstChild;
             while ($replacementChild) {
@@ -25,12 +25,31 @@
                 $replacementChild = $replacementChild->nextSibling;
             }
             $include->parentNode->replaceChild($replacement, $include);
-            //echo "[at $file: $includes->length includes, pos = $i]\n";
         }
+        
+        // xi:include
+        $xIncludes = $doc->getElementsByTagNameNS('http://www.w3.org/2001/XInclude', 'include');
+        while ($xIncludes->length > 0) {
+            $include = $xIncludes->item(0);
+            if (file_exists(resolvePath($include->getAttribute('href'), $include->baseURI))) {
+                $replacementDoc = processIncludes($include->getAttribute('href'), $include->baseURI);
+                $replacement = $doc->importNode($replacementDoc->documentElement, true);
+            } else if ($include->getElementsByTagNameNS('http://www.w3.org/2001/XInclude', 'fallback')->length > 0) {
+                $replacement = $doc->createDocumentFragment();
+                $fallbacks = $include->getElementsByTagNameNS('http://www.w3.org/2001/XInclude', 'fallback');
+                $fallbackChild = $fallbacks[0]->firstChild;
+                while ($fallbackChild) {
+                    $replacement->appendChild($doc->importNode($fallbackChild, true));
+                    $fallbackChild = $fallbackChild->nextSibling;
+                }
+            }
+            $include->parentNode->replaceChild($replacement, $include);
+        }
+        
         return $doc;
     }
     
-    $doc = processXSLIncludes($_SXML['file']);
+    $doc = processIncludes($_SXML['file']);
     header('Content-type: text/xsl');
     print $doc->saveXML();
 ?>

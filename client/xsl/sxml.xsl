@@ -2,6 +2,7 @@
 <xsl:stylesheet version="1.0" 
     xmlns="http://www.w3.org/1999/xhtml"
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+    xmlns:xi="http://www.w3.org/2001/XInclude"
     xmlns:exsl="http://exslt.org/common"
     xmlns:sxml="http://sergets.ru/sxml"
     xmlns:msxsl="urn:schemas-microsoft-com:xslt"    
@@ -18,6 +19,23 @@
           doctype-public="-//W3C//DTD XHTML 1.0 Strict//EN"
           doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"
         />
+
+    <xsl:variable name="sxml-config-raw"><xi:include href="../../config.xml"/></xsl:variable>
+    <xsl:variable name="sxml-config" select="exsl:node-set($sxml-config-raw)"/>
+    <xsl:variable name="sxml-local-config-raw"><xi:include href="../../local.xml"/></xsl:variable>
+    <xsl:variable name="sxml-local-config" select="exsl:node-set($sxml-local-config-raw)"/>
+    <xsl:variable name="sxml-project-config-raw"><xi:include href="../../../config.xml"/></xsl:variable>
+    <xsl:variable name="sxml-project-config" select="exsl:node-set($sxml-project-config-raw)"/>
+    <xsl:variable name="sxml-project-local-config-raw"><xi:include href="../../../local.xml"/></xsl:variable>
+    <xsl:variable name="sxml-project-local-config" select="exsl:node-set($sxml-project-local-config-raw)"/>
+    
+    <xsl:template name="sxml:config">
+        <xsl:param name="param-name"/>
+        <xsl:value-of select="$sxml-project-local-config//*[name() = $param-name]
+            | $sxml-project-config//*[name() = $param-name]
+            | $sxml-local-config//*[name() = $param-name]
+            | $sxml-config//*[name() = $param-name]"/>
+    </xsl:template>
           
     <xsl:template name="sxml:page">
         <xsl:param name="sxml-root"/>
@@ -50,7 +68,7 @@
             </xsl:call-template>
         </xsl:variable>
         <xsl:variable name="root-from-xml" select="substring($sxml-root-from-xml, 0, string-length($sxml-root-from-xml) - string-length($sxml-folder))"/>
-        
+
         <html>
             <head>
                 <title><xsl:value-of select="$title"/></title>
@@ -123,11 +141,11 @@
                     </xsl:otherwise>
                 </xsl:choose>
                 <div id="sxml_notifier"/>
-                
+
                 <script type="text/javascript">
                     require = {
                         paths : {
-                            'jquery': '<xsl:call-template name="sxml:quote"><xsl:with-param name="v" select="concat($sxml-root-from-xml, '/client/libs/jquery')"/></xsl:call-template>',
+                            'jquery': '<xsl:call-template name="sxml:quote"><xsl:with-param name="v"><xsl:call-template name="sxml:config"><xsl:with-param name="param-name">jquery</xsl:with-param></xsl:call-template></xsl:with-param></xsl:call-template>',
                             'sxml' : '<xsl:call-template name="sxml:quote"><xsl:with-param name="v" select="concat($sxml-root-from-xml, '/client/js')"/></xsl:call-template>'
                         }
                     };
