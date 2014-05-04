@@ -1,6 +1,5 @@
 <?
-    require_once(dirname(__FILE__).'/../common/setup.php');
-    require_once($SXMLParams['sxml'].'/common/db.lib.php');
+    require_once(dirname(__FILE__).'/../common/db.lib.php');
     
     // Инициализиация
     getDB()->query('create table if not exists "sxml:users" ("provider", "user" unique, "name", "link", "userpic", "sex")');
@@ -12,22 +11,22 @@
     // //
     
     function doLogin($user, $hash) {
-        global $SXMLParams;
+        global $SXMLConfig;
 
         saveUser($hash);
         $_SESSION['sxml:user'] = $user;
-        //setcookie('userid_current', $user, 0, $SXMLParams['root']);
-        setcookie('sxml:remembered_provider', $hash['provider'], time() + 86400, $SXMLParams['root']);
+        //setcookie('userid_current', $user, 0, $SXMLConfig['root']);
+        setcookie('sxml:remembered_provider', $hash['provider'], time() + 86400, $SXMLConfig['root']);
         return true;
         
     }
     
     function doLogout() {
-        global $SXMLParams;
+        global $SXMLConfig;
     
         unset($_SESSION['sxml:user']);
-        //setcookie('userid_current', '', time() - 3600, $SXMLParams['root']);
-        setcookie('sxml:remembered_provider', '', time() - 3600, $SXMLParams['root']);
+        //setcookie('userid_current', '', time() - 3600, $SXMLConfig['root']);
+        setcookie('sxml:remembered_provider', '', time() - 3600, $SXMLConfig['root']);
         
     }
 

@@ -1,8 +1,7 @@
 <?
-    require_once('../common/setup.php');
     require_once('../common/sxml.lib.php');
     require_once('../common/db.lib.php');
-    require_once($SXMLParams['login'].'/login.inc.php');
+    require_once($SXMLConfig['login'].'/login.inc.php');
     
     $hash = substr(strrchr($_SXML['file'], '/'), 1);
     $contentType = simpleSelect('type', '"sxml:uploads"', '"hash" = \''.$hash.'\'');

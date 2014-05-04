@@ -4,13 +4,12 @@
     // Подключает @import в тело, резолвит урлы вида url(//file) в настоящий корень файла,
     // ставит длительное время кеширования. Минифицировать и кешировать на сервере пока не умеет (TODO!)
     
-    require_once '../common/setup.php';
     require_once '../common/sxml.lib.php';
     
     function getCSSContent($theFile) {
-        global $SXMLParams;
+        global $SXMLConfig;
         $css = file_get_contents($theFile);
-        $css = str_replace('url(//', 'url('.$SXMLParams['root'], $css);
+        $css = str_replace('url(//', 'url('.$SXMLConfig['root'], $css);
         preg_match_all('/\@import ("|url\()(.*)("|\));/', $css, $imports);
         foreach ($imports[2] as $n => $file) {
             $f = resolvePath($file, $theFile);

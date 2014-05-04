@@ -1,10 +1,83 @@
 <?
+    //////////
+    // Параметры
+    /////////
+    
+    function parseSXMLConfig($file) {
+        global $SXMLConfig;
+
+        if(!isset($SXMLConfig)) {
+            $SXMLConfig = array();
+        }
+
+        if(!file_exists($file)) {
+            return false;
+        }
+
+        $configDoc = DOMDocument::load($file);
+        $vars = $configDoc->documentElement->childNodes;
+        $ns = $configDoc->documentElement->namespaceURI;
+
+        for ($i = 0; $i < $vars->length; $i++) {
+            $var = $vars->item($i);
+            $name = $var->localName;
+            if ($var->hasChildNodes())  {
+                if ($var->childNodes->length == 1 && $var->firstChild->nodeType == XML_TEXT_NODE) {
+                    $SXMLConfig[$name] = $var->textContent;
+                } else {
+                    $arr = array();
+                    $items = $var->childNodes;
+                    for ($j = 0; $j < $items->length; $j++) {
+                        $item = $items->item($j);
+                        if ($item->nodeType == XML_ELEMENT_NODE) {
+                            if ($item->localName == 'item' && $item->namespaceURI == $ns) {
+                                $arr[] = $item->textContent;
+                            } else {
+                                $arr[$item->localName] = $item->textContent;
+                            }
+                        }
+                    }
+                    $SXMLConfig[$name] = $arr;
+                }
+            } else {
+                $SXMLConfig[$name] = true; 
+            }
+        }
+
+        isset($SXMLConfig['docroot']) || ($SXMLConfig['docroot'] = $_SERVER['DOCUMENT_ROOT']); // /var/www/site_ru
+        isset($SXMLConfig['host'])    || ($SXMLConfig['host'] = $_SERVER['HTTP_HOST']);        // site.ru
+        
+        if (!isset($SXMLConfig['folder']) || !isset($SXMLConfig['root'])) {
+            $whereAmI = explode('/', substr($_SERVER['PHP_SELF'], 1));
+            do {
+                array_pop($whereAmI); // handler.php
+                $curfldr = $SXMLConfig['docroot'] . '/' . join('/', $whereAmI);
+            } while (!file_exists($curfldr . '/client'));
+        }
+        
+        isset($SXMLConfig['folder'])    || ($SXMLConfig['folder'] = array_pop($whereAmI));                                       // sxml
+        isset($SXMLConfig['root'])      || ($SXMLConfig['root'] = '/'.join('/', $whereAmI).((count($whereAmI) > 0) ? '/' : '')); // / or /project/
+        isset($SXMLConfig['localroot']) || ($SXMLConfig['localroot'] = $SXMLConfig['docroot'].$SXMLConfig['root']);              // /var/www/site_ru/project/
+        isset($SXMLConfig['sxml'])      || ($SXMLConfig['sxml'] = $SXMLConfig['localroot'].$SXMLConfig['folder']);
+        
+        isset($SXMLConfig['login'])     || ($SXMLConfig['login'] = $SXMLConfig['sxml'].$SXMLConfig['paths']['login']);
+        isset($SXMLConfig['data'])      || ($SXMLConfig['data'] = $SXMLConfig['localroot'].$SXMLConfig['paths']['dataRoot']);
+        isset($SXMLConfig['db'])        || ($SXMLConfig['db'] = $SXMLConfig['data'].$SXMLConfig['paths']['dataFile']);
+       
+        // разрешённые типы данных для загрузки файлов
+        isset($SXMLConfig['uploaddir']) || ($SXMLConfig['uploaddir'] = $SXMLConfig['localroot'].$SXMLConfig['paths']['uploadRoot']);
+    }
+    
+    parseSXMLConfig('../config.xml');
+    parseSXMLConfig('../local.xml');
+    
+    parseSXMLConfig($SXMLConfig['localroot'].'config.xml');
+    parseSXMLConfig($SXMLConfig['localroot'].'local.xml');
+
     ///////////
     // Утилиты
     ///////////
-    
-    require_once 'setup.php';
-    
+
     // Парсит указания блока в том виде, в каком они фигурируют в адресной строке. Возвращает $hash, принимаемый findBlock
     function parseHash($query) {
         $hash = array();
@@ -71,7 +144,7 @@
     // Определяет, является ли $path относительным адресом и в любом случае преобразует его к локальному пути. Если путь не преобразуется к локальному,
     // то возвращает false
     function resolvePath($path, $baseURI = '') {
-        global $SXMLParams;
+        global $SXMLConfig;
         // Возможные варианты $path: 
         // - [http:]//sergets.ru/dir/dir[/../..]/file.txt
         // - /dir/dir[/../..]/path (от DOCUMENT_ROOT)
@@ -80,21 +153,21 @@
         // baseURI приводится к UNIX-виду (прямые слеши).
         
         if ($baseURI == '') {
-            $baseURI = $SXMLParams['docroot'];
+            $baseURI = $SXMLConfig['docroot'];
         }
         $baseURI = str_replace('\\', '/', $baseURI);
         if (!is_dir($baseURI)) {
             $baseURI = substr($baseURI, 0, strrpos($baseURI, '/'));
         }
         
-        if (($s = strpos($path, '//'.$SXMLParams['host'])) !== false) {
-            $path = substr($path, $s + strlen('//'.$SXMLParams['host'])); // [http:]//sergets.ru/dir/ -> /dir/
+        if (($s = strpos($path, '//'.$SXMLConfig['host'])) !== false) {
+            $path = substr($path, $s + strlen('//'.$SXMLConfig['host'])); // [http:]//sergets.ru/dir/ -> /dir/
             if ($path == '') $path = '/';
         } else if (strpos($path, '//') !== false) { 
             return false; // Другой сайт
         }
         if (strpos($path, '/') === 0) {
-            $path = str_replace('\\', '/', $SXMLParams['docroot']).$path;
+            $path = str_replace('\\', '/', $SXMLConfig['docroot']).$path;
         } else {
             $path = $baseURI.'/'.$path;
         }
@@ -106,7 +179,7 @@
             $path = preg_replace('/\/([^\/]*[^\/\.][^\/]*)\/\.\./', '', $path);
         }
 
-        if (strpos($path, str_replace('\\', '/', $SXMLParams['localroot'])) !== 0) {
+        if (strpos($path, str_replace('\\', '/', $SXMLConfig['localroot'])) !== 0) {
             return false;
         } else {
             return $path;
@@ -114,9 +187,9 @@
     }
     
     function local2global($path) {
-        global $SXMLParams;
+        global $SXMLConfig;
         
-        return 'http://'.str_replace(str_replace('\\', '/', $SXMLParams['localroot']), $SXMLParams['host'].$SXMLParams['root'], $path);
+        return 'http://'.str_replace(str_replace('\\', '/', $SXMLConfig['localroot']), $SXMLConfig['host'].$SXMLConfig['root'], $path);
     }
     
     //////

@@ -2,7 +2,6 @@
     // Модуль sxml-процессора SXMLight
     // Получает на вход входной xml-документ, возвращает его, с обработанными sxml-инструкциями 
 
-    require_once 'setup.php';
     require_once 'common.lib.php';
     require_once 'db.lib.php';
 
@@ -14,28 +13,28 @@
     
     // Шотркаты для неймспейсных атрибутов
     function hasSXMLAttr($el, $attr) {
-        global $SXMLParams;
-        return $el->hasAttributeNS($SXMLParams['ns'], $attr);
+        global $SXMLConfig;
+        return $el->hasAttributeNS($SXMLConfig['ns'], $attr);
     }
     
     function getSXMLAttr($el, $attr) {
-        global $SXMLParams;
-        return $el->getAttributeNS($SXMLParams['ns'], $attr);
+        global $SXMLConfig;
+        return $el->getAttributeNS($SXMLConfig['ns'], $attr);
     }
     
     function removeSXMLAttr($el, $attr) {
-        global $SXMLParams;
-        return $el->removeAttributeNS($SXMLParams['ns'], $attr);
+        global $SXMLConfig;
+        return $el->removeAttributeNS($SXMLConfig['ns'], $attr);
     }
     
     function setSXMLAttr($el, $attr, $val) {
-        global $SXMLParams;
-        return $el->setAttributeNS($SXMLParams['ns'], 'sxml:' . $attr, $val);
+        global $SXMLConfig;
+        return $el->setAttributeNS($SXMLConfig['ns'], 'sxml:' . $attr, $val);
     }
     
     function createSXMLElem($doc, $name) {
-        global $SXMLParams;
-        return $doc->createElementNS($SXMLParams['ns'], $name, $val);
+        global $SXMLConfig;
+        return $doc->createElementNS($SXMLConfig['ns'], $name, $val);
     }
 
     // Возвращает объект DOMXPath.
@@ -117,8 +116,6 @@
     // Загружает и парсит (xml) файл c локального пути $from для инклуда, возвращает DOMNode c выставленными included-from и т. п.
     // hash - указание блока (массив с возможными ключами: range, class+inst, id)
     function fetch($from, $hash = array()) {
-        global $SXMLParams;
-        // Здесь нужно дописать парсеры урлов, в частности *.xml.php.
         $doc = new DOMDocument();
         if (!$from) {
             return null;
@@ -438,9 +435,9 @@
     // а также для разворачивания if'ов и foreach'ей.
     // Переменные — это sxml:var или с указанным store, не находящиеся в action.
     function collectVars($block) {
-        global $SXMLParams;
+        global $SXMLConfig;
   
-        $vars = evaluateXPath($block, 'preceding::sxml:var|(preceding::sxml:'.join('|preceding::sxml:', $SXMLParams['queries']).')[@store and not(ancestor::sxml:action)]');
+        $vars = evaluateXPath($block, 'preceding::sxml:var|(preceding::sxml:'.join('|preceding::sxml:', $SXMLConfig['queries']).')[@store and not(ancestor::sxml:action)]');
         for ($i = 0; $i < $vars->length; $i++) {
             $var = $vars->item($i);
             if ($var->localName == 'var') {
@@ -460,7 +457,7 @@
     // Выполняет в документе действие: ищёт <sxml:action> с соответствующим именем, прогоняет все элементы. Если элемент первого уровня вышел с ошибкой, то вся завершается с ошибкой,
     // Иначе с результатом всех ok первого уровня. Здесь хинт: можно игнорировать ошибки того или иного запроса, просто спрятав его под неисчезающий тег (т. е. не под sxml:if)
     function executeAction($currentAction) {
-        global $_SXML, $SXMLParams, $_SXML_VARS;
+        global $_SXML, $SXMLConfig, $_SXML_VARS;
         
         $doc = $currentAction->ownerDocument;
         // Более правильно — с префиксом: sxml:open-to, а не open-to, но для совместимости работают оба варианта. // TODO сделать только правильный
@@ -486,7 +483,7 @@
                     $item = $children->item($i);
                     $stepResult = processElement($item);
                     if ($stepResult !== null && $stepResult->nodeType == XML_ELEMENT_NODE) {    // Если мы видим какой-то тег в результате
-                        if ($stepResult->localName == 'error' && $stepResult->namespaceURI == $SXMLParams['ns']) {
+                        if ($stepResult->localName == 'error' && $stepResult->namespaceURI == $SXMLConfig['ns']) {
                             $actionResult = $stepResult;
                             getDB()->rollBack();
                             $_SXML['inTransaction'] = false;
@@ -548,7 +545,7 @@
     // Основная функция. Принимает на вход DOMElement. Возвращает либо себя, либо то, на что себя заменили (возможно, массив).
     // Если удалили, возвращает null. Если заменили весь документ и пора заканчивать всю обработку, возвращает false.
     function processElement($el) {
-        global $SXMLParams, $_SXML, $_SXML_VARS;
+        global $SXMLConfig, $_SXML, $_SXML_VARS;
     
         if ($el->nodeType == XML_ELEMENT_NODE) {
             foreach($el->attributes as $a => $attr) {
@@ -561,7 +558,7 @@
                 }
             }
 
-            if ($el->namespaceURI == $SXMLParams['ns']) {
+            if ($el->namespaceURI == $SXMLConfig['ns']) {
                 switch ($el->localName) {
                     case 'if':
                     case 'unless':
@@ -644,14 +641,14 @@
                             }
                         }
                         if (strpos($el->getAttribute('name'), 'sxml:') === 0) {
-                            $el->parentNode->setAttributeNS($SXMLParams['ns'], substr($el->getAttribute('name'), 5), $el->textContent);
+                            $el->parentNode->setAttributeNS($SXMLConfig['ns'], substr($el->getAttribute('name'), 5), $el->textContent);
                         } else {
                             $el->parentNode->setAttribute($el->getAttribute('name'), $el->textContent);
                         }
                         $el->parentNode->removeChild($el);
                         return null;
                     default:
-                        if (in_array($el->localName, $SXMLParams['queries'])) {
+                        if (in_array($el->localName, $SXMLConfig['queries'])) {
                             $block = processQuery($el);
                             processElement($block);
                             return $block;
@@ -712,7 +709,7 @@
 
     // Создаёт элемент sxml:error
     function createError($doc, $errCode, $text = false) {
-        global $SXMLParams;
+        global $SXMLConfig;
         $messages = array(
             1 => 'Элементов не найдено',
             2 => 'Файл не найден',
@@ -726,7 +723,7 @@
             10 => 'Ошибка при загрузке файла',
             11 => 'Нельзя удалить непустой объект'
         );
-        $error = $doc->createElementNS($SXMLParams['ns'], 'error');
+        $error = $doc->createElementNS($SXMLConfig['ns'], 'error');
         if (!$text) {
             if (isset($messages[$errCode])) {
                 $text = $messages[$errCode];

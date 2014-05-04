@@ -5,10 +5,9 @@
 
     error_reporting( E_ERROR + E_WARNING );
 
-    require_once 'setup.php';
     require_once 'common.lib.php';
 
-    require_once($SXMLParams['login'].'/login.inc.php');
+    require_once($SXMLConfig['login'].'/login.inc.php');
 
     //session_start();
 
@@ -42,14 +41,14 @@
 
         $ready = true;
         header('HTTP/1.0 404 Not Found');
-        include ($SXMLParams['specialHandlers']['404']); //
-    } elseif (dirname($file) == $SXMLParams['uploaddir']) {
+        include ($SXMLConfig['specialHandlers']['err404']); //
+    } elseif (dirname($file) == $SXMLConfig['uploaddir']) {
         $ready = true;
         header('HTTP/1.0 200 OK');
-        include ($SXMLParams['specialHandlers']['upload']); //
+        include ($SXMLConfig['specialHandlers']['upload']); //
     } elseif (is_dir($file)) {
         $foundindex = false;
-        foreach ($SXMLParams['dirindex'] as $i => $indexfile) {
+        foreach ($SXMLConfig['dirindex'] as $i => $indexfile) {
             $indexPath = strrpos($file, '/') === strlen($file) - 1 ? $file.$indexfile : $file.'/'.$indexfile;
             if (file_exists($indexPath)) {
                 $_SXML['file'] = $file = $indexPath;
@@ -61,7 +60,7 @@
 
             $ready = true;
             header('HTTP/1.0 200 OK');
-            include ($SXMLParams['specialHandlers']['dir']);
+            include ($SXMLConfig['specialHandlers']['dir']);
 
         }
     }
@@ -75,11 +74,11 @@
             $extensions[] = join($exts, '.');
         }
         foreach($extensions as $i => $extension) {
-            if (isset($SXMLParams['handlers'][$extension])) {
+            if (isset($SXMLConfig['handlers'][$extension])) {
 
                 $ready = true;
                 header('HTTP/1.0 200 OK');
-                include ($SXMLParams['handlers'][$extension]);
+                include ($SXMLConfig['handlers'][$extension]);
 
                 break;
             }
@@ -89,7 +88,7 @@
             // Файл направили на нас в .htaccess'е через 403, но хендлера не нашлось. Значит, это и правда 403.
             $ready = true;
             header('HTTP/1.0 403 Forbidden');
-            include ($SXMLParams['specialHandlers']['403']);
+            include ($SXMLConfig['specialHandlers']['err403']);
 
         }
 

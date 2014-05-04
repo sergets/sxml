@@ -1,7 +1,6 @@
 <?
     require_once('login.lib.php');
     require_once('login.inc.php');
-    require_once('../common/setup.php');
     
     ///// 
     
@@ -11,7 +10,7 @@
         $_SESSION['oauth:random_key'] = substr(md5(rand()), 0, 10);
     }
     $OAuthSetup = array(
-        'self' => 'http://'.$SXMLParams['host'].$SXMLParams['root'].$SXMLParams['folder'].'/login/?sxml:oauthkey='.$_SESSION['oauth:random_key'],
+        'self' => 'http://'.$SXMLConfig['host'].$SXMLConfig['root'].$SXMLConfig['folder'].'/login/?sxml:oauthkey='.$_SESSION['oauth:random_key'],
         'vk_id' => '1931312', // '2441664', // '3542713',
         'vk_secret' => 'YhKsOqqRNwv96hV9qybE' // '0fDYmRanA9f3DQpVoNGB' // 'pSdxVtb7COUga0sZEAQP'
     );
@@ -122,8 +121,6 @@
     // Результирующие действия
     
     function success($provider = null, $username = null, $additionals = null) {
-        global $SXMLParams;
-        
         if (!$provider) {
             doLogout();
         } else {
@@ -155,8 +152,6 @@
     }
     
     function error($message) {
-        global $SXMLParams;
-        
         header('HTTP/1.1 200 OK');
         header('Content-type: text/html');
         ?><html><script type="text/javascript">

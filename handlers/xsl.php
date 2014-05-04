@@ -4,8 +4,6 @@
     // Подключает xsl:include в тело, резолвит все урлы,
     // ставит длительное время кеширования.
     
-    require_once '../common/common.lib.php';
-    require_once '../common/setup.php';
     require_once '../common/sxml.lib.php';
     
     function processXSLIncludes($file, $baseURI = false) {

@@ -1,6 +1,5 @@
 <?
-    require_once 'setup.php';
-    require_once 'db.lib.php';
+    require_once 'common.lib.php';
     
     // Модуль для работы с базой данных в SXML
     
@@ -9,19 +8,19 @@
     
     // Открывает базу данных, если нужно
     function getDB() {
-        global $SXML_DBHandler, $SXMLParams;
+        global $SXML_DBHandler, $SXMLConfig;
         if (!$SXML_DBHandler) {
             try {
-                $SXML_DBHandler = new PDO('sqlite:'.$SXMLParams['db']);
+                $SXML_DBHandler = new PDO('sqlite:'.$SXMLConfig['db']);
             } catch(PDOException $e) {
                 echo "sql exception!";
-                if (!file_exists($SXMLParams['data'])) {
-                    echo $SXMLParams['data'];
+                if (!file_exists($SXMLConfig['data'])) {
+                    echo $SXMLConfig['data'];
                 }
-                if (!file_exists($SXMLParams['db'])) {
-                    fopen($SXMLParams['db'], 'w');
-                    fclose($SXMLParams['db']);
-                    $SXML_DBHandler = new PDO('sqlite:'.$SXMLParams['db']);
+                if (!file_exists($SXMLConfig['db'])) {
+                    fopen($SXMLConfig['db'], 'w');
+                    fclose($SXMLConfig['db']);
+                    $SXML_DBHandler = new PDO('sqlite:'.$SXMLConfig['db']);
                 }
             }
         }
@@ -34,9 +33,9 @@
     }
     
     function logQuery($query, $vars, $result) {
-        global $SXMLParams;
+        global $SXMLConfig;
         
-        $fn = $SXMLParams['localroot'].'data/queries.log';
+        $fn = $SXMLConfig['localroot'].'data/queries.log';
         if (file_exists($fn)) {
             $s = date('H:i:s') . "---------------------------------------------\n";
             $s .= '[' . $query . ']';
@@ -45,7 +44,7 @@
             }
             $s .= "\n\n";
             $s .= print_r($result, true) . "\n";
-            $fp = fopen($SXMLParams['localroot'].'data/queries.log', 'a');
+            $fp = fopen($SXMLConfig['localroot'].'data/queries.log', 'a');
             fwrite($fp, $s);
             fclose($fp);
         }
@@ -90,14 +89,14 @@
     
     // Возвращает в виде массива данные, переданные в insert или edit
     function getContainedData($el) {
-        global $SXMLParams;
+        global $SXMLConfig;
     
         $cols = evaluateXPath($el, './*', true);
         $data = array();
         for ($i = 0; $i < $cols->length; $i++) {
             if ($cols->item($i)->tagName == 'col') {
                 $name = $cols->item($i)->getAttribute('name');
-            } elseif ($cols->item($i)->namespaceURI == $SXMLParams['ns']) {
+            } elseif ($cols->item($i)->namespaceURI == $SXMLConfig['ns']) {
                 $name = 'sxml:' . $cols->item($i)->localName;
             } else {
                 $name = $cols->item($i)->tagName;
@@ -222,7 +221,7 @@
     // Обрабатывает инструкцию <sxml:insert/> - допиленный INSERT
     // <sxml:insert into=""><field default="123">some unescaped sql :data</field><field>where :vars are substituded from POST</field></sxml:insert>
     function processInsert($el) {
-        global $SXMLParams, $_SXML;
+        global $_SXML;
 
         $table = $el->getAttribute('into');
         $data = getContainedData($el);
@@ -376,7 +375,7 @@
                         $entry = $el->getAttribute('entry');
                         $entryClass = $el->getAttribute('entry-class');
                         if (substr($entry, 0, 5) === 'sxml:') {
-                            $rowElem = createSXMLElem($doc, $SXMLParams['ns'], substr($entry, 5)); 
+                            $rowElem = createSXMLElem($doc, $SXMLConfig['ns'], substr($entry, 5)); 
                         } else if ($entry == '') {
                             $rowElem = $doc->createElement('entry');
                         } else {
@@ -429,8 +428,8 @@
     
     // Общая часть для всех инструкций
     function processQuery($el) {
-        global $_SXML, $SXMLParams;
-        if ($el->namespaceURI !== $SXMLParams['ns']) {
+        global $_SXML, $SXMLConfig;
+        if ($el->namespaceURI !== $SXMLConfig['ns']) {
             return false;
         }
         $range = false;
