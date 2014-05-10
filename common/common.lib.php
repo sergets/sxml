@@ -14,9 +14,13 @@
             return false;
         }
 
-        $configDoc = DOMDocument::load($file);
-        $vars = $configDoc->documentElement->childNodes;
-        $ns = $configDoc->documentElement->namespaceURI;
+        $configNode = DOMDocument::load($file)->documentElement;
+        if ($configNode->localName == 'stylesheet') {
+            $configNode = $configNode->getElementsByTagName('config')->item(0);
+        }
+        
+        $vars = $configNode->childNodes;
+        $ns = $configNode->namespaceURI;
 
         for ($i = 0; $i < $vars->length; $i++) {
             $var = $vars->item($i);
@@ -68,11 +72,11 @@
         isset($SXMLConfig['uploaddir']) || ($SXMLConfig['uploaddir'] = $SXMLConfig['localroot'].$SXMLConfig['paths']['uploadRoot']);
     }
     
-    parseSXMLConfig('../config.xml');
-    parseSXMLConfig('../local.xml');
+    parseSXMLConfig('../config.xsl');
+    parseSXMLConfig('../config-local.xsl');
     
-    parseSXMLConfig($SXMLConfig['localroot'].'config.xml');
-    parseSXMLConfig($SXMLConfig['localroot'].'local.xml');
+    parseSXMLConfig($SXMLConfig['localroot'].'config.xsl');
+    parseSXMLConfig($SXMLConfig['localroot'].'config-local.xsl');
 
     ///////////
     // Утилиты

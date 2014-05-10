@@ -7,7 +7,7 @@
     xmlns:sxml="http://sergets.ru/sxml"
     xmlns:msxsl="urn:schemas-microsoft-com:xslt"    
     exclude-result-prefixes="exsl msxsl">
-  
+
     <msxsl:script language="JScript" implements-prefix="exslt">
         this["node-set"] = function (x) {
             return x;
@@ -20,14 +20,17 @@
           doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"
         />
 
-    <xsl:variable name="sxml-config-raw"><xi:include href="../../config.xml"/></xsl:variable>
-    <xsl:variable name="sxml-config" select="exsl:node-set($sxml-config-raw)"/>
-    <xsl:variable name="sxml-local-config-raw"><xi:include href="../../local.xml"/></xsl:variable>
-    <xsl:variable name="sxml-local-config" select="exsl:node-set($sxml-local-config-raw)"/>
-    <xsl:variable name="sxml-project-config-raw"><xi:include href="../../../config.xml"/></xsl:variable>
-    <xsl:variable name="sxml-project-config" select="exsl:node-set($sxml-project-config-raw)"/>
-    <xsl:variable name="sxml-project-local-config-raw"><xi:include href="../../../local.xml"/></xsl:variable>
-    <xsl:variable name="sxml-project-local-config" select="exsl:node-set($sxml-project-local-config-raw)"/>
+    <!-- configs --> 
+        
+    <xsl:include href="../../config.xsl"/>
+    <xsl:include href="../../config-local.xsl"/>
+    <xsl:include href="../../../config.xsl"/>
+    <xsl:include href="../../../config-local.xsl"/>    
+
+    <xsl:variable name="sxml-config" select="exsl:node-set($sxml-config-node)"/>
+    <xsl:variable name="sxml-local-config" select="exsl:node-set($sxml-local-config-node)"/>
+    <xsl:variable name="sxml-project-config" select="exsl:node-set($sxml-project-config-node)"/>
+    <xsl:variable name="sxml-project-local-config" select="exsl:node-set($sxml-project-local-config-node)"/>
     
     <xsl:template name="sxml:config">
         <xsl:param name="param-name"/>
@@ -36,6 +39,8 @@
             | $sxml-local-config//*[name() = $param-name]
             | $sxml-config//*[name() = $param-name]"/>
     </xsl:template>
+    
+    <!-- page template -->     
           
     <xsl:template name="sxml:page">
         <xsl:param name="sxml-root"/>
@@ -179,25 +184,22 @@
     
     <xsl:template match="/*/sxml:data"/>
     
+    <!-- users and dates -->
+    
     <xsl:template match="*" mode="sxml:user">
         <xsl:call-template name="sxml:user">
             <xsl:with-param name="user" select="./@sxml:user"/>
         </xsl:call-template>
     </xsl:template>
-    
-    <months>
-        <m>января</m>
-        <m>февраля</m>
-        <m>марта</m>
-        <m>апреля</m>
-        <m>мая</m>
-        <m>июня</m>
-        <m>июля</m>
-        <m>августа</m>
-        <m>сентября</m>
-        <m>октября</m>
-    </months>
-    
+
+    <xsl:template name="sxml:user">
+        <xsl:param name="user"/>
+        <span class="sxml_username">
+            <xsl:attribute name="ondblclick">return { username : '<xsl:call-template name="sxml:quote"><xsl:with-param name="v" select="$user"/></xsl:call-template>' }</xsl:attribute>
+            <a href="{concat('http://', /*/sxml:data/sxml:found-users/sxml:user[@id=$user]/@link)}"><xsl:value-of select="/*/sxml:data/sxml:found-users/sxml:user[@id=$user]/@name"/></a>
+        </span>
+    </xsl:template>    
+
     <xsl:template name="sxml:date">
         <xsl:param name="date"/>
         <xsl:variable name="y" select="number(substring($date, 0, 5))"/>
@@ -259,7 +261,9 @@
             </span>
         </xsl:if>
     </xsl:template>
-    
+
+    <!-- pagers -->
+
     <xsl:template name="sxml:pager-generic">
         <xsl:param name="one"/>
         <xsl:param name="few"/>
@@ -348,6 +352,8 @@
         </xsl:call-template>
     </xsl:template>
     
+    <!-- russian language -->
+    
     <xsl:template name="sxml:incline">
         <xsl:param name="number"/>
         <xsl:param name="one"/>
@@ -365,6 +371,23 @@
             </xsl:otherwise>
         </xsl:choose>
     </xsl:template>
+
+    <xsl:template name="sxml:conjugate">
+        <xsl:param name="user"/>
+        <xsl:param name="m"/>
+        <xsl:param name="f"/>
+        <xsl:param name="n" select="$m"/>
+        <span class="sxml_conjugate">
+            <xsl:attribute name="ondblclick">return { username : '<xsl:call-template name="sxml:quote"><xsl:with-param name="v" select="$user"/></xsl:call-template>' }</xsl:attribute>
+            <xsl:choose>
+                <xsl:when test="/*/sxml:data/sxml:found-users/sxml:user[@id=$user]/@sex = 'm'"><xsl:value-of select="$m"/></xsl:when>
+                <xsl:when test="/*/sxml:data/sxml:found-users/sxml:user[@id=$user]/@sex = 'f'"><xsl:value-of select="$f"/></xsl:when>
+                <xsl:otherwise><xsl:value-of select="$n"/></xsl:otherwise>
+            </xsl:choose>
+        </span>
+    </xsl:template>    
+    
+    <!-- sxml:if-permitted -->
     
     <xsl:template name="sxml:if-permitted">
         <xsl:param name="owner" select="''"/>
@@ -414,6 +437,8 @@
             </xsl:otherwise>
         </xsl:choose>
     </xsl:template>
+    
+    <!-- strings -->
     
     <xsl:template name="sxml:replace">
         <xsl:param name="haystack"/>
@@ -483,29 +508,8 @@
             </xsl:otherwise>
         </xsl:choose>
     </xsl:template>
-    
-    <xsl:template name="sxml:user">
-        <xsl:param name="user"/>
-        <span class="sxml_username">
-            <xsl:attribute name="ondblclick">return { username : '<xsl:call-template name="sxml:quote"><xsl:with-param name="v" select="$user"/></xsl:call-template>' }</xsl:attribute>
-            <a href="{concat('http://', /*/sxml:data/sxml:found-users/sxml:user[@id=$user]/@link)}"><xsl:value-of select="/*/sxml:data/sxml:found-users/sxml:user[@id=$user]/@name"/></a>
-        </span>
-    </xsl:template>
 
-    <xsl:template name="sxml:conjugate">
-        <xsl:param name="user"/>
-        <xsl:param name="m"/>
-        <xsl:param name="f"/>
-        <xsl:param name="n" select="$m"/>
-        <span class="sxml_conjugate">
-            <xsl:attribute name="ondblclick">return { username : '<xsl:call-template name="sxml:quote"><xsl:with-param name="v" select="$user"/></xsl:call-template>' }</xsl:attribute>
-            <xsl:choose>
-                <xsl:when test="/*/sxml:data/sxml:found-users/sxml:user[@id=$user]/@sex = 'm'"><xsl:value-of select="$m"/></xsl:when>
-                <xsl:when test="/*/sxml:data/sxml:found-users/sxml:user[@id=$user]/@sex = 'f'"><xsl:value-of select="$f"/></xsl:when>
-                <xsl:otherwise><xsl:value-of select="$n"/></xsl:otherwise>
-            </xsl:choose>
-        </span>
-    </xsl:template>
+    <!-- applying modes -->
 
     <xsl:template match="*" mode="sxml">
         <xsl:call-template name="sxml:attrs">
