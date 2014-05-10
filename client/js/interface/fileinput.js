@@ -8,7 +8,8 @@ define([
     Observable
 ) {
     var defaultOptions = {
-            maxFiles : 15
+            maxFiles : 15,
+            retryTimeouts : [500, 500, 1000, 1000, 5000, 5000, 10000, 10000, 20000]
         },
         loadCounter = 0;
 
@@ -106,7 +107,8 @@ define([
             this._content.empty();
             this._val.forEach(function(hash) {
                 var src = sxml.root + '/../uploads/' + hash + '?s=50x50',
-                    onClick = this._options.readOnly && this._options.onClick
+                    onClick = this._options.readOnly && this._options.onClick,
+                    timeouts = this._options.retryTimeouts;
                 this._content.append(
                     $('<div/>')
                         .addClass('sxml_fileinput-file')
@@ -124,15 +126,18 @@ define([
                             .bind('error', function() {
                                 var _this = this,
                                     img = new Image(),
-                                    interval = setInterval(function() {
-                                        img.src = src;
-                                    }, 500);
+                                    timeoutCounter = 0;
                                 $(this).parent().addClass('sxml_fileinput-file-loading');
                                 img.src = src;
+                                img.onerror = function() {
+                                    timeoutCounter++;
+                                    timeouts[timeoutCounter] && setTimeout(function() {
+                                        img.src = src;
+                                    }, timeouts[timeoutCounter]);
+                                }
                                 img.onload = function() {
                                     $(_this).parent().removeClass('sxml_fileinput-file-loading');
                                     _this.src = src;
-                                    clearInterval(interval);
                                 }
                             })
                             .click(onClick? $.proxy(function() {
