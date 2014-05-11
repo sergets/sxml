@@ -44,7 +44,8 @@
         include ($SXMLConfig['specialHandlers']['err404']); //
     } elseif (dirname($file) == $SXMLConfig['uploaddir']) {
         $ready = true;
-        header('HTTP/1.0 200 OK');
+        header('Status: 200');
+        header('HTTP/1.0 200 OK', true, 200);
         include ($SXMLConfig['specialHandlers']['upload']); //
     } elseif (is_dir($file)) {
         $foundindex = false;
@@ -59,7 +60,8 @@
         if (!$foundindex) {
 
             $ready = true;
-            header('HTTP/1.0 200 OK');
+            header('Status: 200');
+            header('HTTP/1.0 200 OK', true, 200); 
             include ($SXMLConfig['specialHandlers']['dir']);
 
         }
@@ -77,7 +79,8 @@
             if (isset($SXMLConfig['handlers'][$extension])) {
 
                 $ready = true;
-                header('HTTP/1.0 200 OK');
+                header('Status: 200');
+                header('HTTP/1.0 200 OK', true, 200);
                 include ($SXMLConfig['handlers'][$extension]);
 
                 break;
